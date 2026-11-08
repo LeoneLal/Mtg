@@ -92,9 +92,13 @@ Pour rebâtir un APK signé avec cette clé :
 
 ```bash
 mkdir -p keystore && cp /chemin/vers/mtgduel.jks keystore/
-cp keystore.properties.exemple keystore.properties   # puis renseignez-y le mot de passe
 ./gradlew assembleRelease
 ```
+
+en créant à la racine un fichier `keystore.properties` de quatre lignes :
+`storeFile` (chemin vers la clé), `storePassword`, `keyAlias` et `keyPassword`.
+Les mêmes valeurs peuvent être passées par les variables d'environnement
+`MTG_KEYSTORE_FILE`, `MTG_KEYSTORE_PASSWORD`, `MTG_KEY_ALIAS` et `MTG_KEY_PASSWORD`.
 
 `keystore/` et `keystore.properties` sont ignorés par Git. Sans eux, `assembleRelease` fonctionne
 quand même mais signe avec la clé de debug : l'APK s'installe sur un téléphone vierge, pas

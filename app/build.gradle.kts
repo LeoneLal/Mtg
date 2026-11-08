@@ -52,7 +52,7 @@ android {
             signingConfig = if (hasReleaseKey) {
                 signingConfigs.getByName("release")
             } else {
-                logger.lifecycle("MTG Duel : aucune clé de release trouvée, signature avec la clé de debug (voir keystore.properties.exemple).")
+                logger.lifecycle("MTG Duel : aucune clé de release trouvée, signature avec la clé de debug (voir le README).")
                 signingConfigs.getByName("debug")
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
