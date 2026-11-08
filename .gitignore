@@ -12,3 +12,4 @@ captures/
 MTG-Duel-*.apk
 keystore/
 keystore.properties
+cle-de-signature-*.jks
