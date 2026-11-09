@@ -56,6 +56,40 @@ de l'appareil.
   les decks absents sont ajoutés) — pratique pour changer de téléphone ou récupérer la saisie faite sur
   l'autre appareil.
 
+## Reprendre le projet sur un ordinateur
+
+1. Installez **Android Studio** (gratuit, Windows/macOS/Linux) : <https://developer.android.com/studio>.
+   Il apporte le JDK et le SDK Android nécessaires, rien d'autre n'est à installer.
+2. Décompressez `mtg-duel-projet.zip` quelque part (par exemple `Documents/Mtg`).
+3. Dans Android Studio : **Open** → sélectionnez le dossier décompressé (celui qui contient
+   `settings.gradle.kts`) → **Trust Project**. La première synchronisation Gradle télécharge les
+   dépendances, comptez quelques minutes.
+4. Pour tester : branchez le téléphone en USB avec le *débogage USB* activé, ou créez un émulateur
+   (**Device Manager**), puis appuyez sur **Run ▶**.
+5. Pour produire un APK à installer : **Build → Build Bundle(s) / APK(s) → Build APK(s)**. Le fichier
+   sort dans `app/build/outputs/apk/debug/`.
+
+L'archive contient aussi le dossier `.git` : l'historique est préservé, et vous pouvez envoyer le
+projet sur GitHub depuis l'ordinateur avec
+
+```bash
+git remote set-url origin https://github.com/<vous>/<dépôt>.git
+git push -u origin ccr-b9bc5fe2-v0545u
+```
+
+### Par où commencer pour modifier
+
+| Ce que vous voulez changer | Fichier |
+| --- | --- |
+| Textes, libellés, formulations | le fichier de l'écran concerné dans `app/src/main/java/fr/leonelal/mtgduel/ui/screens/` |
+| Couleurs, thème clair/sombre | `ui/theme/Theme.kt` |
+| Champs enregistrés pour une partie | `data/Models.kt`, puis `ui/screens/GameFormScreen.kt` |
+| Nouveaux calculs de statistiques | `data/Stats.kt`, affichés par `ui/screens/StatsScreen.kt` |
+| Formats de jeu, raisons de fin de partie | `data/Models.kt` (objets `Formats` et `EndReasons`) |
+| Icône de l'application | `app/src/main/res/drawable/ic_launcher_foreground.xml` |
+
+Après une modification, `./gradlew testDebugUnitTest` vérifie que rien n'est cassé.
+
 ## Reconstruire l'APK
 
 ### Avec GitHub Actions
