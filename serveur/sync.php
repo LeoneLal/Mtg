@@ -84,15 +84,33 @@ try {
     erreur(500, 'Connexion à la base impossible : ' . $e->getMessage());
 }
 
-$pdo->exec(
-    'CREATE TABLE IF NOT EXISTS ' . TABLE . ' (
-        kind       text   NOT NULL,
-        id         text   NOT NULL,
-        updated_at bigint NOT NULL,
-        payload    jsonb  NOT NULL,
-        PRIMARY KEY (kind, id)
-    )'
-);
+/**
+ * La table est créée au premier appel. Si l'utilisateur de la base n'a pas le droit de
+ * créer dans le schéma (fréquent depuis PostgreSQL 15 quand le schéma appartient à
+ * quelqu'un d'autre), on se contente de vérifier qu'elle existe déjà.
+ */
+try {
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS ' . TABLE . ' (
+            kind       text   NOT NULL,
+            id         text   NOT NULL,
+            updated_at bigint NOT NULL,
+            payload    jsonb  NOT NULL,
+            PRIMARY KEY (kind, id)
+        )'
+    );
+} catch (Throwable $creation) {
+    $existante = $pdo->query('SELECT to_regclass(' . $pdo->quote(TABLE) . ')')->fetchColumn();
+    if ($existante === null || $existante === false) {
+        erreur(500, sprintf(
+            'La table %s est absente et sa création a échoué (%s). Créez-la depuis phpPgAdmin '
+            . 'avec le contenu de schema.sql, ou donnez le droit CREATE sur le schéma à %s.',
+            TABLE,
+            $creation->getMessage(),
+            DB_USER
+        ));
+    }
+}
 
 /** Lit tout l'état partagé. */
 function etatComplet(PDO $pdo): array
