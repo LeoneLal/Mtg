@@ -28,14 +28,48 @@ jobs:
           restore-keys: gradle-${{ runner.os }}-
 
       - name: Tests unitaires
-        run: ./gradlew testReleaseUnitTest --no-daemon
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      # Si le dépôt ne porte pas de clé, l'APK est signé avec la clé de debug :
+      # installable sur un téléphone vierge, mais pas par-dessus une version signée
+      # avec la vraie clé.
+      - name: Restaurer la clé de signature
+        env:
+          CLE_ENCODEE: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$CLE_ENCODEE" ]; then
+            mkdir -p keystore
+            printf '%s' "$CLE_ENCODEE" | base64 -d > keystore/mtgduel.jks
+            echo "Clé de release restaurée : l'APK sera installable en mise à jour."
+          else
+            echo "Pas de clé dans les secrets du dépôt : signature avec la clé de debug."
+          fi
 
       - name: Construire l'APK
+        env:
+          MTG_KEYSTORE_FILE: keystore/mtgduel.jks
+          MTG_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          MTG_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          MTG_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
+
+      - name: Nommer l'APK d'après sa version et vérifier sa signature
+        id: apk
+        run: |
+          version=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts | head -1)
+          source=app/build/outputs/apk/release/app-release.apk
+          cible="MTG-Duel-$version.apk"
+          cp "$source" "$cible"
+          echo "nom=$cible" >> "$GITHUB_OUTPUT"
+
+          signataire=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort | tail -1)
+          if [ -n "$signataire" ]; then
+            "$signataire" verify --print-certs "$cible" | grep -i "DN:" || true
+          fi
 
       - name: Publier l'APK en artefact
         uses: actions/upload-artifact@v4
         with:
           name: mtg-duel-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          path: ${{ steps.apk.outputs.nom }}
           if-no-files-found: error

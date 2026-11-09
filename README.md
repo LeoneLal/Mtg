@@ -149,8 +149,34 @@ Après une modification, `./gradlew testDebugUnitTest` vérifie que rien n'est c
 
 ### Avec GitHub Actions
 
-Le workflow `.github/workflows/android.yml` construit l'APK à chaque push et peut être lancé à la main
-(onglet *Actions* → *Build APK* → *Run workflow*). L'APK est déposé en artefact téléchargeable.
+Le workflow `.github/workflows/android.yml` lance les tests et construit l'APK à chaque push ; il peut
+aussi être déclenché à la main (onglet *Actions* → *Build APK* → *Run workflow*). L'APK est déposé en
+artefact, téléchargeable depuis la page du run — y compris depuis un téléphone.
+
+Par défaut il est signé avec la clé de debug : installable sur un appareil vierge, mais pas par-dessus
+une version signée avec votre clé. Pour que la CI produise un APK réellement installable en mise à
+jour, déposez votre clé dans les secrets du dépôt (*Settings → Secrets and variables → Actions →
+New repository secret*) :
+
+| Secret | Valeur |
+| --- | --- |
+| `KEYSTORE_BASE64` | le fichier de clé encodé en base64 (voir ci-dessous) |
+| `KEYSTORE_PASSWORD` | le mot de passe du magasin |
+| `KEY_ALIAS` | l'alias de la clé |
+| `KEY_PASSWORD` | le mot de passe de la clé |
+
+L'encodage du fichier, sur macOS :
+
+```bash
+base64 -i keystore/mtgduel.jks | tr -d '\n' | pbcopy
+```
+
+(sous Linux : `base64 -w0 keystore/mtgduel.jks`). Collez le résultat dans `KEYSTORE_BASE64`.
+
+Une fois ces secrets en place, GitHub Actions reconstitue la clé le temps du build et la détruit avec
+la machine. Les secrets ne sont plus lisibles ensuite, même par vous : notez votre clé ailleurs.
+Le workflow affiche dans ses logs le nom du certificat signataire, ce qui permet de vérifier d'un
+coup d'œil quelle clé a été utilisée.
 
 ### En local
 
