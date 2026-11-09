@@ -51,10 +51,10 @@ fun DecksScreen(
             compareBy<Deck> { it.archived }.thenBy { it.name.lowercase() }
         )
         listOf(
-            state.playerOne.name to sorted.filter { it.ownerId == state.playerOne.id },
-            state.playerTwo.name to sorted.filter { it.ownerId == state.playerTwo.id },
-            "Decks communs" to sorted.filter { it.ownerId == null }
-        ).filter { it.second.isNotEmpty() }
+            Triple("p1", state.playerOne.name, sorted.filter { it.ownerId == state.playerOne.id }),
+            Triple("p2", state.playerTwo.name, sorted.filter { it.ownerId == state.playerTwo.id }),
+            Triple("commun", "Decks communs", sorted.filter { it.ownerId == null })
+        ).filter { it.third.isNotEmpty() }
     }
 
     Scaffold(
@@ -99,8 +99,8 @@ fun DecksScreen(
                 }
             }
 
-            grouped.forEach { (ownerName, decks) ->
-                item(key = "header-$ownerName") {
+            grouped.forEach { (groupeId, ownerName, decks) ->
+                item(key = "header-$groupeId") {
                     Text(
                         text = ownerName,
                         style = MaterialTheme.typography.labelLarge,

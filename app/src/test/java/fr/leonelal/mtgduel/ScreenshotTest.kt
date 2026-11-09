@@ -1,5 +1,6 @@
 package fr.leonelal.mtgduel
 
+import fr.leonelal.mtgduel.MtgDuelApp
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -77,12 +78,11 @@ class ScreenshotTest {
         )
     )
 
+    private lateinit var viewModel: fr.leonelal.mtgduel.ui.AppViewModel
+
     @Before
     fun preparerLesDonnees() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        context.filesDir.listFiles()?.forEach { it.deleteRecursively() }
-        File(context.filesDir, "mtg-duel-data.json")
-            .writeText(Json { encodeDefaults = true }.encodeToString(AppState.serializer(), donnees))
+        viewModel = viewModelIsole(donnees)
         outDir.mkdirs()
     }
 
@@ -105,7 +105,7 @@ class ScreenshotTest {
 
     @Test
     fun capturer_tous_les_ecrans() {
-        compose.setContent { MtgDuelTheme { AppRoot() } }
+        compose.setContent { MtgDuelTheme { AppRoot(viewModel) } }
 
         capture("01-historique")
 

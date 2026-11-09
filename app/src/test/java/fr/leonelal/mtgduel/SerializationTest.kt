@@ -1,5 +1,6 @@
 package fr.leonelal.mtgduel
 
+import fr.leonelal.mtgduel.MtgDuelApp
 import fr.leonelal.mtgduel.data.AppState
 import fr.leonelal.mtgduel.data.Deck
 import fr.leonelal.mtgduel.data.Game

@@ -1,5 +1,6 @@
 package fr.leonelal.mtgduel
 
+import fr.leonelal.mtgduel.MtgDuelApp
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -23,16 +24,15 @@ class AppSmokeTest {
     @get:Rule
     val compose = createComposeRule()
 
+    private lateinit var viewModel: fr.leonelal.mtgduel.ui.AppViewModel
+
     @Before
     fun repartirDeZero() {
-        // Robolectric réutilise le dossier de données entre les tests : on le vide
-        // pour que chaque scénario parte d'une application vierge.
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        context.filesDir.listFiles()?.forEach { it.deleteRecursively() }
+        viewModel = viewModelIsole()
     }
 
     private fun lancerApp() {
-        compose.setContent { MtgDuelTheme { AppRoot() } }
+        compose.setContent { MtgDuelTheme { AppRoot(viewModel) } }
     }
 
     @Test

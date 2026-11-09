@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -24,6 +25,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.compose.runtime.collectAsState
+import fr.leonelal.mtgduel.MtgDuelApp
 import fr.leonelal.mtgduel.ui.screens.DeckFormScreen
 import fr.leonelal.mtgduel.ui.screens.DecksScreen
 import fr.leonelal.mtgduel.ui.screens.GameFormScreen
@@ -53,7 +55,11 @@ private val tabs = listOf(
 )
 
 @Composable
-fun AppRoot(viewModel: AppViewModel = viewModel()) {
+fun AppRoot(
+    viewModel: AppViewModel = viewModel(
+        factory = AppViewModel.factory(LocalContext.current.applicationContext as MtgDuelApp)
+    )
+) {
     val navController = rememberNavController()
     val state by viewModel.state.collectAsState()
     val backStackEntry by navController.currentBackStackEntryAsState()

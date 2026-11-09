@@ -18,10 +18,13 @@ import java.io.File
  * Le volume de données (quelques centaines de parties) rend une base de données inutile,
  * et le format JSON permet une sauvegarde/restauration lisible.
  */
-class GameRepository(context: Context) {
+class GameRepository(
+    context: Context,
+    /** Emplacement du fichier de données ; paramétrable pour les tests. */
+    private val file: File = File(context.applicationContext.filesDir, FILE_NAME)
+) {
 
     private val appContext = context.applicationContext
-    private val file = File(appContext.filesDir, FILE_NAME)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val writeMutex = Mutex()
 
@@ -77,6 +80,9 @@ class GameRepository(context: Context) {
 
     fun deleteAllGames() = mutate { current -> current.copy(games = emptyList()) }
 
+    /** Remet l'application à neuf : plus aucune partie ni aucun deck, noms par défaut. */
+    fun resetAll() = mutate { AppState() }
+
     // ----------------------------------------------------- export / import
 
     fun exportToJson(): String = json.encodeToString(AppState.serializer(), _state.value)
@@ -124,13 +130,13 @@ class GameRepository(context: Context) {
         json.decodeFromString(AppState.serializer(), raw)
     }.getOrElse {
         // Fichier illisible : on le met de côté plutôt que de perdre silencieusement les données.
-        runCatching { file.copyTo(File(appContext.filesDir, "$FILE_NAME.corrupt"), overwrite = true) }
+        runCatching { file.copyTo(File(file.parentFile, file.name + ".corrupt"), overwrite = true) }
         AppState()
     }
 
     private fun writeToDisk(state: AppState) {
         runCatching {
-            val tmp = File(appContext.filesDir, "$FILE_NAME.tmp")
+            val tmp = File(file.parentFile, file.name + ".tmp")
             tmp.writeText(json.encodeToString(AppState.serializer(), state))
             if (file.exists()) file.delete()
             tmp.renameTo(file)
@@ -138,6 +144,6 @@ class GameRepository(context: Context) {
     }
 
     companion object {
-        private const val FILE_NAME = "mtg-duel-data.json"
+        const val FILE_NAME = "mtg-duel-data.json"
     }
 }

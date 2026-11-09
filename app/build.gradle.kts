@@ -15,8 +15,8 @@ android {
         applicationId = "fr.leonelal.mtgduel"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     // La clé de signature ne doit jamais être versionnée. Si « keystore.properties »

@@ -1,5 +1,6 @@
 package fr.leonelal.mtgduel.ui.screens
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,11 +20,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -34,14 +37,17 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import fr.leonelal.mtgduel.data.AppState
 import fr.leonelal.mtgduel.ui.AppViewModel
 import fr.leonelal.mtgduel.ui.SectionCard
@@ -65,6 +71,9 @@ fun SettingsScreen(
     var nameTwo by rememberSaveable { mutableStateOf(state.playerTwo.name) }
     var pendingImport by remember { mutableStateOf<String?>(null) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
+    var showWipeDialog by rememberSaveable { mutableStateOf(false) }
+    var crashVersion by remember { mutableIntStateOf(0) }
+    val dernierPlantage = remember(crashVersion) { viewModel.lastCrash() }
 
     LaunchedEffect(state.playerOne.name) { nameOne = state.playerOne.name }
     LaunchedEffect(state.playerTwo.name) { nameTwo = state.playerTwo.name }
@@ -113,6 +122,43 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (dernierPlantage != null) {
+                SectionCard(title = "Dernière erreur") {
+                    Text(
+                        "L'application s'est fermée de façon inattendue. Ce rapport technique indique " +
+                            "précisément où : partage-le pour qu'il soit corrigé.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = dernierPlantage,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        FilledTonalButton(
+                            onClick = {
+                                val envoi = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_SUBJECT, "MTG Duel — rapport d'erreur")
+                                    putExtra(Intent.EXTRA_TEXT, dernierPlantage)
+                                }
+                                context.startActivity(Intent.createChooser(envoi, "Partager le rapport"))
+                            }
+                        ) {
+                            Icon(Icons.Filled.Share, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Partager")
+                        }
+                        OutlinedButton(onClick = {
+                            viewModel.clearCrash()
+                            crashVersion++
+                        }) { Text("Effacer") }
+                    }
+                }
+            }
+
             SectionCard(title = "Les joueurs") {
                 OutlinedTextField(
                     value = nameOne,
@@ -173,11 +219,17 @@ fun SettingsScreen(
 
             SectionCard(title = "Zone sensible") {
                 Text(
-                    "Efface toutes les parties enregistrées. Les decks sont conservés.",
+                    "« Effacer l'historique » supprime les parties et garde les decks. " +
+                        "« Tout effacer » remet l'application à neuf, decks et noms compris.",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                OutlinedButton(onClick = { showResetDialog = true }) {
-                    Text("Effacer l'historique", color = MaterialTheme.colorScheme.error)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(onClick = { showResetDialog = true }) {
+                        Text("Effacer l'historique", color = MaterialTheme.colorScheme.error)
+                    }
+                    OutlinedButton(onClick = { showWipeDialog = true }) {
+                        Text("Tout effacer", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
 
@@ -235,6 +287,24 @@ fun SettingsScreen(
                     }) { Text("Fusionner") }
                     TextButton(onClick = { pendingImport = null }) { Text("Annuler") }
                 }
+            }
+        )
+    }
+
+    if (showWipeDialog) {
+        AlertDialog(
+            onDismissRequest = { showWipeDialog = false },
+            title = { Text("Tout effacer ?") },
+            text = { Text("Parties, decks et noms des joueurs seront remis à zéro. Pense à exporter une sauvegarde avant.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.resetAll()
+                    showWipeDialog = false
+                    scope.launch { snackbarHostState.showSnackbar("Application remise à neuf.") }
+                }) { Text("Tout effacer") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWipeDialog = false }) { Text("Annuler") }
             }
         )
     }
