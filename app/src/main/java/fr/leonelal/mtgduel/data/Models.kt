@@ -1,5 +1,6 @@
 package fr.leonelal.mtgduel.data
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
@@ -7,7 +8,9 @@ import java.util.UUID
 @Serializable
 data class Player(
     val id: String,
-    val name: String
+    val name: String,
+    /** Date de dernière modification, en millis : arbitre la fusion entre appareils. */
+    val updatedAt: Long = 0L
 )
 
 /** Un deck utilisé par l'un des joueurs (ou partagé). */
@@ -21,7 +24,14 @@ data class Deck(
     val colors: List<String> = emptyList(),
     val note: String = "",
     val archived: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** Date de dernière modification, en millis : arbitre la fusion entre appareils. */
+    val updatedAt: Long = createdAt,
+    /**
+     * Pierre tombale : un deck supprimé est conservé marqué comme tel, sinon l'autre
+     * téléphone le réinjecterait à la synchronisation suivante.
+     */
+    val deleted: Boolean = false
 )
 
 /** Ce qu'un joueur a fait dans une partie donnée. */
@@ -47,7 +57,11 @@ data class Game(
     val sides: List<GameSide>,
     val endReason: String = EndReasons.DAMAGE,
     val turns: Int? = null,
-    val notes: String = ""
+    val notes: String = "",
+    /** Date de dernière modification, en millis : arbitre la fusion entre appareils. */
+    val updatedAt: Long = playedAt,
+    /** Pierre tombale : voir [Deck.deleted]. */
+    val deleted: Boolean = false
 ) {
     fun sideOf(playerId: String): GameSide? = sides.firstOrNull { it.playerId == playerId }
 
@@ -132,18 +146,24 @@ object MtgColors {
 /** L'intégralité des données de l'application, sérialisée dans un seul fichier JSON. */
 @Serializable
 data class AppState(
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = 2,
     val players: List<Player> = defaultPlayers,
-    val decks: List<Deck> = emptyList(),
-    val games: List<Game> = emptyList()
+    @SerialName("decks") val allDecks: List<Deck> = emptyList(),
+    @SerialName("games") val allGames: List<Game> = emptyList()
 ) {
     val playerOne: Player get() = players.getOrElse(0) { defaultPlayers[0] }
     val playerTwo: Player get() = players.getOrElse(1) { defaultPlayers[1] }
 
+    /** Decks visibles : tout sauf les pierres tombales. */
+    val decks: List<Deck> get() = allDecks.filterNot { it.deleted }
+
+    /** Parties visibles : tout sauf les pierres tombales, et seulement les parties cohérentes. */
+    val games: List<Game> get() = allGames.filter { !it.deleted && it.isValid }
+
     fun playerName(id: String?): String =
         players.firstOrNull { it.id == id }?.name ?: "Joueur inconnu"
 
-    fun deck(id: String?): Deck? = decks.firstOrNull { it.id == id }
+    fun deck(id: String?): Deck? = allDecks.firstOrNull { it.id == id }
 
     fun deckName(id: String?): String = deck(id)?.name ?: "Deck supprimé"
 

@@ -41,23 +41,37 @@ class GameRepository(
 
     fun renamePlayer(playerId: String, name: String) = mutate { current ->
         val cleaned = name.trim().ifEmpty { current.playerName(playerId) }
-        current.copy(players = current.players.map { if (it.id == playerId) it.copy(name = cleaned) else it })
+        current.copy(
+            players = current.players.map {
+                if (it.id == playerId) it.copy(name = cleaned, updatedAt = now()) else it
+            }
+        )
     }
 
     // ------------------------------------------------------------------ decks
 
     fun upsertDeck(deck: Deck) = mutate { current ->
-        val exists = current.decks.any { it.id == deck.id }
-        val decks = if (exists) {
-            current.decks.map { if (it.id == deck.id) deck else it }
-        } else {
-            current.decks + deck
-        }
-        current.copy(decks = decks)
+        val horodate = deck.copy(updatedAt = now())
+        val exists = current.allDecks.any { it.id == deck.id }
+        current.copy(
+            allDecks = if (exists) {
+                current.allDecks.map { if (it.id == deck.id) horodate else it }
+            } else {
+                current.allDecks + horodate
+            }
+        )
     }
 
+    /**
+     * Marque le deck comme supprimé au lieu de l'effacer : sans cette trace, l'autre
+     * téléphone le réinjecterait à la synchronisation suivante.
+     */
     fun deleteDeck(deckId: String) = mutate { current ->
-        current.copy(decks = current.decks.filterNot { it.id == deckId })
+        current.copy(
+            allDecks = current.allDecks.map {
+                if (it.id == deckId) it.copy(deleted = true, updatedAt = now()) else it
+            }
+        )
     }
 
     fun deckIsUsed(deckId: String): Boolean = _state.value.games.any { it.involvesDeck(deckId) }
@@ -65,23 +79,46 @@ class GameRepository(
     // ---------------------------------------------------------------- parties
 
     fun upsertGame(game: Game) = mutate { current ->
-        val exists = current.games.any { it.id == game.id }
-        val games = if (exists) {
-            current.games.map { if (it.id == game.id) game else it }
-        } else {
-            current.games + game
-        }
-        current.copy(games = games)
+        val horodate = game.copy(updatedAt = now())
+        val exists = current.allGames.any { it.id == game.id }
+        current.copy(
+            allGames = if (exists) {
+                current.allGames.map { if (it.id == game.id) horodate else it }
+            } else {
+                current.allGames + horodate
+            }
+        )
     }
 
     fun deleteGame(gameId: String) = mutate { current ->
-        current.copy(games = current.games.filterNot { it.id == gameId })
+        current.copy(
+            allGames = current.allGames.map {
+                if (it.id == gameId) it.copy(deleted = true, updatedAt = now()) else it
+            }
+        )
     }
 
-    fun deleteAllGames() = mutate { current -> current.copy(games = emptyList()) }
+    fun deleteAllGames() = mutate { current ->
+        val instant = now()
+        current.copy(
+            allGames = current.allGames.map {
+                if (it.deleted) it else it.copy(deleted = true, updatedAt = instant)
+            }
+        )
+    }
+
+    /** Remplace l'état complet, par exemple après une synchronisation. */
+    fun replaceWith(state: AppState) = mutate { state }
 
     /** Remet l'application à neuf : plus aucune partie ni aucun deck, noms par défaut. */
-    fun resetAll() = mutate { AppState() }
+    fun resetAll() = mutate { current ->
+        val instant = now()
+        AppState(
+            players = AppState.defaultPlayers.map { it.copy(updatedAt = instant) },
+            allDecks = current.allDecks.map { if (it.deleted) it else it.copy(deleted = true, updatedAt = instant) },
+            allGames = current.allGames.map { if (it.deleted) it else it.copy(deleted = true, updatedAt = instant) }
+        )
+    }
 
     // ----------------------------------------------------- export / import
 
@@ -91,8 +128,7 @@ class GameRepository(
     fun importFromJson(raw: String): Result<Int> = runCatching {
         val imported = json.decodeFromString(AppState.serializer(), raw)
         val sanitized = imported.copy(
-            players = imported.players.take(2).ifEmpty { AppState.defaultPlayers },
-            games = imported.games.filter { it.isValid }
+            players = imported.players.take(2).ifEmpty { AppState.defaultPlayers }
         )
         mutate { sanitized }
         sanitized.games.size
@@ -103,17 +139,19 @@ class GameRepository(
         val imported = json.decodeFromString(AppState.serializer(), raw)
         var added = 0
         mutate { current ->
-            val knownDecks = current.decks.map { it.id }.toSet()
-            val knownGames = current.games.map { it.id }.toSet()
-            val newDecks = imported.decks.filterNot { it.id in knownDecks }
-            val newGames = imported.games.filter { it.isValid && it.id !in knownGames }
-            added = newGames.size
-            current.copy(decks = current.decks + newDecks, games = current.games + newGames)
+            val knownDecks = current.allDecks.map { it.id }.toSet()
+            val knownGames = current.allGames.map { it.id }.toSet()
+            val newDecks = imported.allDecks.filterNot { it.id in knownDecks }
+            val newGames = imported.allGames.filterNot { it.id in knownGames }
+            added = newGames.count { !it.deleted }
+            current.copy(allDecks = current.allDecks + newDecks, allGames = current.allGames + newGames)
         }
         added
     }
 
     // --------------------------------------------------------------- interne
+
+    private fun now(): Long = System.currentTimeMillis()
 
     private fun mutate(transform: (AppState) -> AppState) {
         val updated = transform(_state.value)

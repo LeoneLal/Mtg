@@ -53,8 +53,8 @@ class ScreenshotTest {
 
     private val donnees = AppState(
         players = listOf(moi, copain),
-        decks = listOf(atraxa, krenko, edgar),
-        games = listOf(
+        allDecks = listOf(atraxa, krenko, edgar),
+        allGames = listOf(
             Game(
                 id = "g1", playedAt = jours(0), firstPlayerId = "p2", winnerId = "p1",
                 sides = listOf(GameSide("p1", "d1", 17), GameSide("p2", "d2", 0)),

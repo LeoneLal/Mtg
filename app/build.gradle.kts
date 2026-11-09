@@ -15,8 +15,8 @@ android {
         applicationId = "fr.leonelal.mtgduel"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
     }
 
     // La clé de signature ne doit jamais être versionnée. Si « keystore.properties »
@@ -83,6 +83,7 @@ android {
             all { test ->
                 // Dossier de sortie des captures d'écran générées par ScreenshotTest.
                 System.getProperty("mtg.shots.dir")?.let { test.systemProperty("mtg.shots.dir", it) }
+                System.getProperty("mtg.wire.out")?.let { test.systemProperty("mtg.wire.out", it) }
             }
         }
     }
@@ -112,6 +113,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(kotlin("test"))
     testImplementation(libs.robolectric)
+    testImplementation(libs.mockwebserver)
     testImplementation(libs.androidx.test.core)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.ui.test.junit4)

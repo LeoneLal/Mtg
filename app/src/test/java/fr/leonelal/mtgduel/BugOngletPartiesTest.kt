@@ -49,11 +49,11 @@ class BugOngletPartiesTest {
         ecrireEtat(
             AppState(
                 players = listOf(Player("p1", "Moi"), Player("p2", "Mon copain")),
-                decks = listOf(
+                allDecks = listOf(
                     Deck("d1", "Atraxa", "p1", listOf("W", "U", "B", "G")),
                     Deck("d2", "Krenko", "p2", listOf("R"))
                 ),
-                games = emptyList()
+                allGames = emptyList()
             )
         )
         compose.setContent { MtgDuelTheme { AppRoot(viewModel) } }
@@ -84,8 +84,8 @@ class BugOngletPartiesTest {
         ecrireEtat(
             AppState(
                 players = listOf(Player("p1", "Leo"), Player("p2", "Leo")),
-                decks = listOf(Deck("d1", "Atraxa", "p1"), Deck("d2", "Krenko", "p2")),
-                games = emptyList()
+                allDecks = listOf(Deck("d1", "Atraxa", "p1"), Deck("d2", "Krenko", "p2")),
+                allGames = emptyList()
             )
         )
         compose.setContent { MtgDuelTheme { AppRoot(viewModel) } }

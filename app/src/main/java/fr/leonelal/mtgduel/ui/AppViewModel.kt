@@ -2,6 +2,7 @@ package fr.leonelal.mtgduel.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import fr.leonelal.mtgduel.MtgDuelApp
@@ -10,11 +11,18 @@ import fr.leonelal.mtgduel.data.CrashReporter
 import fr.leonelal.mtgduel.data.Deck
 import fr.leonelal.mtgduel.data.Game
 import fr.leonelal.mtgduel.data.GameRepository
+import fr.leonelal.mtgduel.data.SyncService
+import fr.leonelal.mtgduel.data.SyncSettings
+import fr.leonelal.mtgduel.data.SyncSettingsStore
+import fr.leonelal.mtgduel.data.SyncState
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 class AppViewModel(
     private val repository: GameRepository,
-    private val crashReporter: CrashReporter
+    private val crashReporter: CrashReporter,
+    private val syncSettingsStore: SyncSettingsStore? = null,
+    private val syncService: SyncService? = null
 ) : ViewModel() {
 
     val state: StateFlow<AppState> = repository.state
@@ -41,13 +49,36 @@ class AppViewModel(
 
     fun mergeFromJson(raw: String): Result<Int> = repository.mergeFromJson(raw)
 
+    // ------------------------------------------------------- synchronisation
+
+    val syncSettings: StateFlow<SyncSettings>? = syncSettingsStore?.settings
+    val syncState: StateFlow<SyncState>? = syncService?.state
+
+    fun updateSyncSettings(transform: (SyncSettings) -> SyncSettings) {
+        syncSettingsStore?.update(transform)
+    }
+
+    fun syncNow(onResult: (Result<String>) -> Unit = {}) {
+        val service = syncService ?: return
+        viewModelScope.launch { onResult(service.sync()) }
+    }
+
+    // -------------------------------------------------------------- erreurs
+
     fun lastCrash(): String? = crashReporter.lastCrash()
 
     fun clearCrash() = crashReporter.clear()
 
     companion object {
         fun factory(app: MtgDuelApp): ViewModelProvider.Factory = viewModelFactory {
-            initializer { AppViewModel(app.repository, app.crashReporter) }
+            initializer {
+                AppViewModel(
+                    repository = app.repository,
+                    crashReporter = app.crashReporter,
+                    syncSettingsStore = app.syncSettingsStore,
+                    syncService = app.syncService
+                )
+            }
         }
     }
 }

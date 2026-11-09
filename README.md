@@ -56,6 +56,61 @@ de l'appareil.
   les decks absents sont ajoutés) — pratique pour changer de téléphone ou récupérer la saisie faite sur
   l'autre appareil.
 
+## Synchroniser les deux téléphones
+
+Par défaut l'application est entièrement hors ligne. En option, les deux téléphones peuvent
+partager parties, decks et noms de joueurs via **votre propre serveur** : une petite API PHP
+(`serveur/sync.php`) posée devant une base PostgreSQL.
+
+### Pourquoi une API et pas la base directement
+
+Faire parler l'application directement à PostgreSQL obligerait à embarquer les identifiants de
+la base dans l'APK — donc à les offrir à quiconque récupère le fichier — et à exposer la base sur
+Internet. L'API tient dans un fichier, ne connaît qu'un jeton partagé, et c'est elle seule qui
+touche à la base.
+
+### Déploiement (exemple avec alwaysdata)
+
+1. **Base** : créez une base PostgreSQL et notez son nom, son hôte, l'utilisateur et le mot de
+   passe. La table est créée automatiquement au premier appel (`serveur/schema.sql` la décrit).
+2. **Site** : dans *Web → Sites*, un site PHP suffit. Repérez son répertoire racine
+   (`~/www` par défaut).
+3. **Fichiers** : déposez-y `serveur/sync.php`, et créez à côté un `config.php` :
+
+   ```php
+   <?php
+   const DB_HOST = 'postgresql-VOTRECOMPTE.alwaysdata.net';
+   const DB_PORT = 5432;
+   const DB_NAME = 'nom_de_votre_base';
+   const DB_USER = 'votre_utilisateur';
+   const DB_PASSWORD = 'le mot de passe de la base';
+   const SYNC_TOKEN = 'une longue phrase secrète, au moins 16 caractères';
+   ```
+
+   `SYNC_TOKEN` est un secret que vous inventez : c'est lui qui autorise vos deux téléphones, et
+   lui seul. Choisissez-le long et aléatoire.
+4. **Vérification** : ouvrez `https://votre-site/sync.php` dans un navigateur. La réponse attendue
+   est `{"error":"Jeton absent ou invalide."}` — cela prouve que PHP et la base répondent.
+5. **Application**, sur chaque téléphone : *Réglages → Synchronisation*, renseignez l'adresse
+   (`https://votre-site/sync.php`) et le même jeton, puis activez l'interrupteur.
+
+La synchronisation se déclenche au lancement de l'application, quelques secondes après chaque
+modification, et à la demande via le bouton *Synchroniser*.
+
+### Comment les conflits sont tranchés
+
+Chaque partie, deck et nom de joueur porte sa date de dernière modification. À la fusion, la
+version la plus récente gagne. Les suppressions voyagent sous forme de marqueurs, ce qui évite
+qu'une partie supprimée sur un téléphone ne revienne depuis l'autre.
+
+La limite assumée : l'arbitrage repose sur l'horloge des téléphones. Si vous modifiez **la même**
+partie chacun de votre côté sans synchroniser entre-temps, la dernière enregistrée l'emporte et
+l'autre version est perdue. Pour deux joueurs qui saisissent chacun leurs parties, le cas ne se
+présente pas.
+
+Le jeton et l'adresse sont stockés à part des données de jeu : ils ne figurent jamais dans les
+sauvegardes exportées.
+
 ## Reprendre le projet sur un ordinateur
 
 1. Installez **Android Studio** (gratuit, Windows/macOS/Linux) : <https://developer.android.com/studio>.

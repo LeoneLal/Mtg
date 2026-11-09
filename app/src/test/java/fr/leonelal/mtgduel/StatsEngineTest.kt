@@ -167,8 +167,8 @@ class StatsEngineTest {
     fun `les noms de decks et de joueurs sont resolus depuis l etat`() {
         val state = AppState(
             players = listOf(moi, lui),
-            decks = listOf(atraxa, krenko),
-            games = games
+            allDecks = listOf(atraxa, krenko),
+            allGames = games
         )
         assertEquals("Moi", state.playerName("p1"))
         assertEquals("Atraxa", state.deckName("d1"))
@@ -180,8 +180,8 @@ class StatsEngineTest {
     fun `les decks du joueur sont proposes en premier`() {
         val state = AppState(
             players = listOf(moi, lui),
-            decks = listOf(krenko, atraxa, Deck(id = "d5", name = "Commun", ownerId = null)),
-            games = emptyList()
+            allDecks = listOf(krenko, atraxa, Deck(id = "d5", name = "Commun", ownerId = null)),
+            allGames = emptyList()
         )
         val pourMoi = state.decksFor("p1").map { it.id }
         assertEquals(listOf("d1", "d5", "d2"), pourMoi)
@@ -191,8 +191,8 @@ class StatsEngineTest {
     fun `les decks archives ne sont plus proposes`() {
         val state = AppState(
             players = listOf(moi, lui),
-            decks = listOf(atraxa.copy(archived = true), krenko),
-            games = emptyList()
+            allDecks = listOf(atraxa.copy(archived = true), krenko),
+            allGames = emptyList()
         )
         assertEquals(listOf("d2"), state.decksFor("p1").map { it.id })
         assertEquals(listOf("d1", "d2"), state.decksFor("p1", includeArchived = true).map { it.id })
