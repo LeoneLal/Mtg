@@ -81,50 +81,30 @@ l'interface (créer un deck, saisir une partie, la retrouver dans l'historique e
 ./gradlew testDebugUnitTest --tests '*ScreenshotTest' -Dmtg.shots.dir=$PWD/docs/screenshots
 ```
 
-### Clé de signature
+### Signature
 
-**La clé n'est pas dans le dépôt** — une clé de signature est un secret, elle n'a rien à faire
-dans Git. Le fichier `keystore/mtgduel.jks` vous a été livré séparément : conservez-le (et son
-mot de passe) hors du dépôt, c'est lui qui permet aux futures versions de s'installer **par-dessus**
-l'application existante sans perdre les données.
+La clé qui signe l'APK n'est pas dans le dépôt, et ne doit pas y être : `keystore/` et
+`keystore.properties` sont ignorés par Git. Elle vous a été livrée séparément — conservez-la,
+c'est elle qui permet aux futures versions de s'installer **par-dessus** l'application existante
+sans perdre les données.
 
-Pour rebâtir un APK signé avec cette clé :
-
-```bash
-mkdir -p keystore && cp /chemin/vers/mtgduel.jks keystore/
-./gradlew assembleRelease
-```
-
-en créant à la racine un fichier `keystore.properties` de quatre lignes :
-`storeFile` (chemin vers la clé), `storePassword`, `keyAlias` et `keyPassword`.
-Les mêmes valeurs peuvent être passées par les variables d'environnement
+Pour reconstruire un APK signé avec elle, placez le fichier de clé dans `keystore/` et créez à la
+racine un `keystore.properties` de quatre lignes : `storeFile` (chemin vers la clé), `storePassword`,
+`keyAlias` et `keyPassword`. Les mêmes valeurs peuvent venir des variables d'environnement
 `MTG_KEYSTORE_FILE`, `MTG_KEYSTORE_PASSWORD`, `MTG_KEY_ALIAS` et `MTG_KEY_PASSWORD`.
 
-`keystore/` et `keystore.properties` sont ignorés par Git. Sans eux, `assembleRelease` fonctionne
-quand même mais signe avec la clé de debug : l'APK s'installe sur un téléphone vierge, pas
-par-dessus une version signée avec la vraie clé.
+Sans ces éléments — c'est le cas sur GitHub Actions — `assembleRelease` fonctionne quand même et
+signe avec la clé de debug. L'APK produit s'installe parfaitement sur un téléphone où l'app n'est
+pas déjà présente ; pour mettre à jour une installation existante, reconstruisez en local avec la
+vraie clé.
 
-Pour que GitHub Actions signe avec votre clé, ajoutez quatre secrets au dépôt
-(*Settings → Secrets and variables → Actions*) :
-
-| Secret | Contenu |
-| --- | --- |
-| `KEYSTORE_BASE64` | `base64 -w0 keystore/mtgduel.jks` |
-| `KEYSTORE_PASSWORD` | le mot de passe du magasin |
-| `KEY_ALIAS` | `mtgduel` |
-| `KEY_PASSWORD` | le mot de passe de la clé |
-
-Si ces secrets sont absents, le workflow construit un APK signé en debug, ce qui reste parfaitement
-utilisable pour tester.
-
-Pour repartir d'une clé neuve :
+Pour repartir d'une clé neuve (il faudra alors désinstaller l'ancienne app avant d'installer la
+nouvelle) :
 
 ```bash
 keytool -genkeypair -v -keystore keystore/mtgduel.jks -storetype PKCS12 \
   -alias mtgduel -keyalg RSA -keysize 2048 -validity 10950
 ```
-
-(il faudra alors désinstaller l'ancienne app avant d'installer la nouvelle).
 
 ## Faire évoluer l'app
 
