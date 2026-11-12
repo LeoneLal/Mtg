@@ -13,7 +13,19 @@ declare(strict_types=1);
 
 const TAILLE_MAX_OCTETS = 8 * 1024 * 1024; // 8 Mo : très large pour des milliers de parties
 const TABLE = 'mtg_enregistrements';
-const TYPES = ['player', 'deck', 'game'];
+
+/**
+ * Correspondance entre le nom de collection envoyé par l'application et le « kind »
+ * stocké en base. Les trois premières sont historiques : elles doivent garder leur
+ * nom au singulier, sinon les enregistrements déjà en base deviendraient invisibles.
+ * Toute collection inconnue est stockée sous son propre nom, ce qui évite d'avoir à
+ * retoucher ce fichier à chaque évolution de l'application.
+ */
+const COLLECTIONS = [
+    'player' => 'players',
+    'deck' => 'decks',
+    'game' => 'games',
+];
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -112,18 +124,31 @@ try {
     }
 }
 
+/** Nom de collection (côté application) correspondant à un « kind » stocké. */
+function collectionDepuisKind(string $kind): string
+{
+    return COLLECTIONS[$kind] ?? $kind;
+}
+
+/** « kind » à stocker pour une collection envoyée par l'application. */
+function kindDepuisCollection(string $collection): ?string
+{
+    $inverse = array_flip(COLLECTIONS);
+    if (isset($inverse[$collection])) {
+        return $inverse[$collection];
+    }
+    // Collection inconnue : acceptée telle quelle si son nom est sain.
+    return preg_match('/^[a-zA-Z][a-zA-Z0-9_]{0,31}$/', $collection) === 1 ? $collection : null;
+}
+
 /** Lit tout l'état partagé. */
 function etatComplet(PDO $pdo): array
 {
     $etat = ['schemaVersion' => 2, 'players' => [], 'decks' => [], 'games' => []];
-    $cles = ['player' => 'players', 'deck' => 'decks', 'game' => 'games'];
 
     $requete = $pdo->query('SELECT kind, payload FROM ' . TABLE . ' ORDER BY kind, id');
     foreach ($requete as $ligne) {
-        $cle = $cles[$ligne['kind']] ?? null;
-        if ($cle === null) {
-            continue;
-        }
+        $cle = collectionDepuisKind((string) $ligne['kind']);
         $decode = json_decode((string) $ligne['payload'], true);
         if (is_array($decode)) {
             $etat[$cle][] = $decode;
@@ -136,12 +161,13 @@ function etatComplet(PDO $pdo): array
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
     $etat = etatComplet($pdo);
-    repondre(200, [
-        'ok' => true,
-        'players' => count($etat['players']),
-        'decks' => count($etat['decks']),
-        'games' => count($etat['games']),
-    ]);
+    $resume = ['ok' => true];
+    foreach ($etat as $cle => $valeur) {
+        if (is_array($valeur)) {
+            $resume[$cle] = count($valeur);
+        }
+    }
+    repondre(200, $resume);
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -164,8 +190,15 @@ if (!is_array($entrant)) {
 }
 
 $aEnregistrer = [];
-foreach (['player' => 'players', 'deck' => 'decks', 'game' => 'games'] as $type => $cle) {
-    foreach ((array) ($entrant[$cle] ?? []) as $enregistrement) {
+foreach ($entrant as $collection => $enregistrements) {
+    if (!is_string($collection) || !is_array($enregistrements) || $collection === 'schemaVersion') {
+        continue;
+    }
+    $kind = kindDepuisCollection($collection);
+    if ($kind === null) {
+        continue;
+    }
+    foreach ($enregistrements as $enregistrement) {
         if (!is_array($enregistrement)) {
             continue;
         }
@@ -174,7 +207,7 @@ foreach (['player' => 'players', 'deck' => 'decks', 'game' => 'games'] as $type 
             continue;
         }
         $aEnregistrer[] = [
-            'kind' => $type,
+            'kind' => $kind,
             'id' => $id,
             'updated_at' => (int) ($enregistrement['updatedAt'] ?? 0),
             'payload' => json_encode($enregistrement, JSON_UNESCAPED_UNICODE),

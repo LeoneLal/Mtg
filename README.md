@@ -1,8 +1,13 @@
 # MTG Duel
 
-Application Android personnelle pour tenir l'historique de vos parties de *Magic: The Gathering* en duel,
-à deux joueurs. Pas de compte, pas de serveur, pas de store : un simple APK à installer, toutes les données
-restent sur le téléphone.
+Application Android personnelle pour tenir l'historique de vos parties. Deux sections indépendantes :
+
+- **Magic: The Gathering**, en duel à deux joueurs, avec les decks et les points de vie ;
+- **Autres jeux**, où vous créez vos propres jeux (Skull King, Mixmo, Monopoly Deal…) et enregistrez
+  des parties avec autant de joueurs que vous voulez.
+
+Pas de compte, pas de store : un simple APK à installer, et les données restent sur le téléphone —
+avec une synchronisation facultative entre deux appareils via votre propre serveur.
 
 ## Ce que l'app enregistre
 
@@ -19,9 +24,13 @@ Pour chaque partie :
 
 ## Aperçu
 
-| Historique | Statistiques | Saisie d'une partie |
+| Historique Magic | Statistiques Magic | Saisie d'une partie Magic |
 | --- | --- | --- |
 | ![Historique](docs/screenshots/01-historique.png) | ![Statistiques](docs/screenshots/03-stats.png) | ![Nouvelle partie](docs/screenshots/05-nouvelle-partie.png) |
+
+| Liste des jeux | Classement d'un jeu | Partie à plusieurs |
+| --- | --- | --- |
+| ![Jeux](docs/screenshots/06-jeux.png) | ![Détail d'un jeu](docs/screenshots/07-jeu-detail.png) | ![Nouvelle partie](docs/screenshots/08-nouvelle-partie-jeu.png) |
 
 ## Les écrans
 
@@ -30,7 +39,8 @@ Pour chaque partie :
 | **Parties** | Le score global entre vous deux, l'historique groupé par jour, un filtre par deck. Un appui sur une partie permet de la corriger ou de la supprimer. |
 | **Decks** | Vos decks, classés par propriétaire, avec leurs couleurs et leur bilan victoires/défaites. Un deck déjà utilisé peut être archivé (il disparaît des nouvelles saisies mais reste dans l'historique). |
 | **Stats** | Bilan global, avantage réel du joueur qui commence, statistiques par joueur (dont PV restants moyens en victoire et en défaite, meilleure série), classement des decks et confrontations deck contre deck. |
-| **Réglages** | Les noms des deux joueurs, l'export/import de sauvegarde JSON, l'effacement de l'historique. |
+| **Jeux** | Vos autres jeux. Chaque jeu a son classement, l'historique de ses parties, et son mode de comptage. |
+| **Réglages** | Les noms des deux joueurs, la synchronisation, l'export/import de sauvegarde JSON, l'effacement de l'historique. |
 
 La saisie d'une partie est optimisée pour l'après-match : les decks de la partie précédente sont
 pré-sélectionnés, et choisir le vainqueur remplit automatiquement les PV (PV de départ pour le gagnant,
@@ -55,6 +65,35 @@ de l'appareil.
 - **Importer** propose soit de *remplacer* toutes les données, soit de *fusionner* (seules les parties et
   les decks absents sont ajoutés) — pratique pour changer de téléphone ou récupérer la saisie faite sur
   l'autre appareil.
+
+## Les autres jeux
+
+La section **Jeux** est complètement séparée de Magic : ni decks, ni points de vie, ni notion de
+joueur qui commence.
+
+### Créer un jeu
+
+Un nom, et surtout **comment on compte les points** — c'est ce réglage qui désigne le vainqueur de
+chaque partie :
+
+| Mode | Usage | Exemple |
+| --- | --- | --- |
+| **Manches gagnées** | Une manche gagnée vaut un point, vous arrêtez quand vous voulez. | Monopoly Deal |
+| **Points, le plus haut gagne** | Vous saisissez le total de chacun. | Skull King |
+| **Points, le plus bas gagne** | Idem, mais le plus petit total l'emporte. | Jeux à pénalités |
+
+Ce réglage reste modifiable : le changer recalcule les vainqueurs des parties déjà enregistrées,
+et l'écran le signale.
+
+### Enregistrer une partie
+
+Vous fixez le **nombre de joueurs** (2 à 12), saisissez un nom et un score par joueur, et le
+vainqueur s'affiche au fur et à mesure. Les noms sont libres, donc un invité de passage se note
+sans rien configurer ; les noms déjà utilisés sont proposés en suggestion, et deux joueurs ne
+peuvent pas porter le même nom dans une partie. Les égalités sont détectées et affichées.
+
+Chaque jeu tient son **classement** : parties jouées, victoires, défaites, égalités, taux de
+victoire et score moyen, trié par nombre de victoires.
 
 ## Synchroniser les deux téléphones
 
@@ -96,6 +135,11 @@ touche à la base.
 
 La synchronisation se déclenche au lancement de l'application, quelques secondes après chaque
 modification, et à la demande via le bouton *Synchroniser*.
+
+`sync.php` accepte n'importe quelle collection envoyée par l'application : les parties de Magic,
+les decks, les jeux et leurs parties, et toute collection ajoutée plus tard sans retoucher le
+serveur. Les enregistrements d'une collection que l'un des téléphones ne connaît pas encore sont
+conservés intacts, ce qui permet de mettre les appareils à jour l'un après l'autre.
 
 ### Comment les conflits sont tranchés
 

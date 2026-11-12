@@ -1,7 +1,10 @@
 package fr.leonelal.mtgduel
 
 import fr.leonelal.mtgduel.data.AppState
+import fr.leonelal.mtgduel.data.CustomGame
+import fr.leonelal.mtgduel.data.CustomMatch
 import fr.leonelal.mtgduel.data.Deck
+import fr.leonelal.mtgduel.data.MatchParticipant
 import fr.leonelal.mtgduel.data.Game
 import fr.leonelal.mtgduel.data.GameSide
 import fr.leonelal.mtgduel.data.Player
@@ -97,5 +100,44 @@ class SyncMergeTest {
         val une = SyncMerge.merge(local, distant)
         val deux = SyncMerge.merge(une, distant)
         assertEquals(une, deux)
+    }
+
+    private fun jeu(id: String, nom: String, maj: Long, supprime: Boolean = false) =
+        CustomGame(id = id, name = nom, createdAt = maj, updatedAt = maj, deleted = supprime)
+
+    private fun partieJeu(id: String, maj: Long, score: Int = 10, supprime: Boolean = false) =
+        CustomMatch(
+            id = id, gameId = "j1", playedAt = maj,
+            participants = listOf(MatchParticipant("Léo", score), MatchParticipant("Alex", 5)),
+            updatedAt = maj, deleted = supprime
+        )
+
+    @Test
+    fun `les jeux et leurs parties se fusionnent comme le reste`() {
+        val local = AppState(allCustomGames = listOf(jeu("j1", "Skull King", 10)))
+        val distant = AppState(
+            allCustomGames = listOf(jeu("j2", "Mixmo", 20)),
+            allCustomMatches = listOf(partieJeu("m1", 30))
+        )
+        val fusion = SyncMerge.merge(local, distant)
+        assertEquals(listOf("j1", "j2"), fusion.allCustomGames.map { it.id }.sorted())
+        assertEquals(1, fusion.allCustomMatches.size)
+    }
+
+    @Test
+    fun `un score corrige plus recemment l emporte`() {
+        val local = AppState(allCustomMatches = listOf(partieJeu("m1", 10, score = 10)))
+        val distant = AppState(allCustomMatches = listOf(partieJeu("m1", 99, score = 42)))
+        val fusion = SyncMerge.merge(local, distant)
+        assertEquals(42, fusion.allCustomMatches.single().participants.first().score)
+    }
+
+    @Test
+    fun `la suppression d un jeu se propage`() {
+        val local = AppState(allCustomGames = listOf(jeu("j1", "Skull King", 10)))
+        val distant = AppState(allCustomGames = listOf(jeu("j1", "Skull King", 99, supprime = true)))
+        val fusion = SyncMerge.merge(local, distant)
+        assertTrue(fusion.allCustomGames.single().deleted)
+        assertTrue(fusion.customGames.isEmpty())
     }
 }

@@ -41,7 +41,10 @@ class ContratDeSynchroTest {
     @Test
     fun `le payload porte les cles attendues par l API`() {
         val racine = Json.parseToJsonElement(json.encodeToString(AppState.serializer(), etat)).jsonObject
-        assertEquals(setOf("schemaVersion", "players", "decks", "games"), racine.keys)
+        assertEquals(
+            setOf("schemaVersion", "players", "decks", "games", "customGames", "customMatches"),
+            racine.keys
+        )
 
         val deck = racine["decks"]!!.jsonArray.first().jsonObject
         assertTrue("id" in deck && "updatedAt" in deck && "deleted" in deck, "clés du deck : ${deck.keys}")

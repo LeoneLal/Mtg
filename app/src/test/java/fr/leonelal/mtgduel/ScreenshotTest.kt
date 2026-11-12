@@ -6,11 +6,17 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import fr.leonelal.mtgduel.data.AppState
+import fr.leonelal.mtgduel.data.CustomGame
+import fr.leonelal.mtgduel.data.CustomMatch
 import fr.leonelal.mtgduel.data.Deck
+import fr.leonelal.mtgduel.data.MatchParticipant
+import fr.leonelal.mtgduel.data.ScoringMode
 import fr.leonelal.mtgduel.data.EndReasons
 import fr.leonelal.mtgduel.data.Game
 import fr.leonelal.mtgduel.data.GameSide
@@ -51,6 +57,17 @@ class ScreenshotTest {
 
     private fun jours(n: Long) = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(n)
 
+    private val skullKing = CustomGame(
+        id = "j1", name = "Skull King", scoring = ScoringMode.POINTS_MAX,
+        note = "Variante : les paris à zéro comptent double", createdAt = 1
+    )
+    private val monopolyDeal = CustomGame(
+        id = "j2", name = "Monopoly Deal", scoring = ScoringMode.MANCHES, createdAt = 2
+    )
+    private val mixmo = CustomGame(
+        id = "j3", name = "Mixmo", scoring = ScoringMode.POINTS_MAX, createdAt = 3
+    )
+
     private val donnees = AppState(
         players = listOf(moi, copain),
         allDecks = listOf(atraxa, krenko, edgar),
@@ -74,6 +91,27 @@ class ScreenshotTest {
                 id = "g4", playedAt = jours(6), firstPlayerId = "p2", winnerId = "p2",
                 sides = listOf(GameSide("p1", "d1", 4), GameSide("p2", "d2", 31)),
                 endReason = EndReasons.CONCEDE
+            )
+        ),
+        allCustomGames = listOf(skullKing, monopolyDeal, mixmo),
+        allCustomMatches = listOf(
+            CustomMatch(
+                id = "m1", gameId = "j1", playedAt = jours(0),
+                participants = listOf(
+                    MatchParticipant("Léo", 72),
+                    MatchParticipant("Alex", 95),
+                    MatchParticipant("Camille", 41),
+                    MatchParticipant("Sam", 88)
+                ),
+                notes = "Camille a tout misé sur la dernière manche."
+            ),
+            CustomMatch(
+                id = "m2", gameId = "j1", playedAt = jours(2),
+                participants = listOf(MatchParticipant("Léo", 120), MatchParticipant("Alex", 80))
+            ),
+            CustomMatch(
+                id = "m3", gameId = "j2", playedAt = jours(1),
+                participants = listOf(MatchParticipant("Léo", 3), MatchParticipant("Alex", 1))
             )
         )
     )
@@ -122,5 +160,20 @@ class ScreenshotTest {
         compose.mainClock.advanceTimeBy(1_000)
         compose.onNodeWithTag("fab-nouvelle-partie").performClick()
         capture("05-nouvelle-partie")
+
+        // ------------------------------------------------------- autres jeux
+        // Le formulaire masque la barre d'onglets : on en sort d'abord.
+        compose.onNodeWithContentDescription("Retour").performClick()
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        compose.onNodeWithTag("onglet-jeux").performClick()
+        capture("06-jeux")
+
+        compose.onNodeWithText("Skull King").performClick()
+        capture("07-jeu-detail")
+
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onNodeWithTag("fab-nouvelle-partie-jeu").performClick()
+        capture("08-nouvelle-partie-jeu")
     }
 }

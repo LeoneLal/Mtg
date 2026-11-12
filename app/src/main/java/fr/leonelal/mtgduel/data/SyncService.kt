@@ -69,7 +69,8 @@ class SyncService(
             _state.value = SyncState.Success(
                 at = instant,
                 received = recus,
-                sent = avant.allDecks.size + avant.allGames.size
+                sent = avant.allDecks.size + avant.allGames.size +
+                    avant.allCustomGames.size + avant.allCustomMatches.size
             )
             Result.success(
                 if (recus == 0) "Déjà à jour." else "$recus élément(s) récupéré(s)."
@@ -84,11 +85,14 @@ class SyncService(
     }
 
     private fun compterNouveautes(reference: AppState, apres: AppState): Int {
-        val decksAvant = reference.allDecks.associateBy { it.id }
-        val partiesAvant = reference.allGames.associateBy { it.id }
-        val decks = apres.allDecks.count { decksAvant[it.id] != it }
-        val parties = apres.allGames.count { partiesAvant[it.id] != it }
-        return decks + parties
+        fun <T : Any> nouveautes(avant: List<T>, apres: List<T>, id: (T) -> String): Int {
+            val index = avant.associateBy(id)
+            return apres.count { index[id(it)] != it }
+        }
+        return nouveautes(reference.allDecks, apres.allDecks) { it.id } +
+            nouveautes(reference.allGames, apres.allGames) { it.id } +
+            nouveautes(reference.allCustomGames, apres.allCustomGames) { it.id } +
+            nouveautes(reference.allCustomMatches, apres.allCustomMatches) { it.id }
     }
 
     private companion object {

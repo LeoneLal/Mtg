@@ -8,6 +8,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import fr.leonelal.mtgduel.MtgDuelApp
 import fr.leonelal.mtgduel.data.AppState
 import fr.leonelal.mtgduel.data.CrashReporter
+import fr.leonelal.mtgduel.data.CustomGame
+import fr.leonelal.mtgduel.data.CustomMatch
 import fr.leonelal.mtgduel.data.Deck
 import fr.leonelal.mtgduel.data.Game
 import fr.leonelal.mtgduel.data.GameRepository
@@ -40,6 +42,16 @@ class AppViewModel(
     fun deleteGame(gameId: String) = repository.deleteGame(gameId)
 
     fun deleteAllGames() = repository.deleteAllGames()
+
+    // ---------------------------------------------------------- autres jeux
+
+    fun saveCustomGame(jeu: CustomGame) = repository.upsertCustomGame(jeu)
+
+    fun deleteCustomGame(gameId: String) = repository.deleteCustomGame(gameId)
+
+    fun saveCustomMatch(partie: CustomMatch) = repository.upsertCustomMatch(partie)
+
+    fun deleteCustomMatch(matchId: String) = repository.deleteCustomMatch(matchId)
 
     fun resetAll() = repository.resetAll()
 

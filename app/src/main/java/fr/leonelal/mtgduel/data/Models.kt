@@ -149,7 +149,10 @@ data class AppState(
     val schemaVersion: Int = 2,
     val players: List<Player> = defaultPlayers,
     @SerialName("decks") val allDecks: List<Deck> = emptyList(),
-    @SerialName("games") val allGames: List<Game> = emptyList()
+    @SerialName("games") val allGames: List<Game> = emptyList(),
+    // Section « Autres jeux », indépendante de Magic.
+    @SerialName("customGames") val allCustomGames: List<CustomGame> = emptyList(),
+    @SerialName("customMatches") val allCustomMatches: List<CustomMatch> = emptyList()
 ) {
     val playerOne: Player get() = players.getOrElse(0) { defaultPlayers[0] }
     val playerTwo: Player get() = players.getOrElse(1) { defaultPlayers[1] }
@@ -183,6 +186,21 @@ data class AppState(
 
     val gamesNewestFirst: List<Game>
         get() = games.sortedByDescending { it.playedAt }
+
+    // ------------------------------------------------------------ autres jeux
+
+    /** Jeux créés, hors pierres tombales, par ordre alphabétique. */
+    val customGames: List<CustomGame>
+        get() = allCustomGames.filterNot { it.deleted }.sortedBy { it.name.lowercase() }
+
+    /** Parties des autres jeux : hors pierres tombales et hors saisies incohérentes. */
+    val customMatches: List<CustomMatch>
+        get() = allCustomMatches.filter { !it.deleted && it.isValid }
+
+    fun customGame(id: String?): CustomGame? = allCustomGames.firstOrNull { it.id == id }
+
+    fun matchesOf(gameId: String): List<CustomMatch> =
+        customMatches.filter { it.gameId == gameId }.sortedByDescending { it.playedAt }
 
     companion object {
         val defaultPlayers = listOf(

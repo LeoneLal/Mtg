@@ -2,6 +2,7 @@ package fr.leonelal.mtgduel.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Style
@@ -30,6 +31,10 @@ import fr.leonelal.mtgduel.ui.screens.DeckFormScreen
 import fr.leonelal.mtgduel.ui.screens.DecksScreen
 import fr.leonelal.mtgduel.ui.screens.GameFormScreen
 import fr.leonelal.mtgduel.ui.screens.GamesScreen
+import fr.leonelal.mtgduel.ui.screens.JeuDetailScreen
+import fr.leonelal.mtgduel.ui.screens.JeuFormScreen
+import fr.leonelal.mtgduel.ui.screens.JeuxScreen
+import fr.leonelal.mtgduel.ui.screens.PartieJeuFormScreen
 import fr.leonelal.mtgduel.ui.screens.SettingsScreen
 import fr.leonelal.mtgduel.ui.screens.StatsScreen
 
@@ -41,8 +46,18 @@ object Routes {
     const val GAME_FORM = "game_form"
     const val DECK_FORM = "deck_form"
 
+    // Section « Autres jeux »
+    const val JEUX = "jeux"
+    const val JEU_FORM = "jeu_form"
+    const val JEU_DETAIL = "jeu_detail"
+    const val PARTIE_JEU = "partie_jeu"
+
     fun gameForm(id: String? = null) = if (id == null) "$GAME_FORM?id=" else "$GAME_FORM?id=$id"
     fun deckForm(id: String? = null) = if (id == null) "$DECK_FORM?id=" else "$DECK_FORM?id=$id"
+    fun jeuForm(id: String? = null) = if (id == null) "$JEU_FORM?id=" else "$JEU_FORM?id=$id"
+    fun jeuDetail(gameId: String) = "$JEU_DETAIL/$gameId"
+    fun partieJeu(gameId: String, matchId: String? = null) =
+        if (matchId == null) "$PARTIE_JEU/$gameId?matchId=" else "$PARTIE_JEU/$gameId?matchId=$matchId"
 }
 
 private data class TabItem(val route: String, val label: String, val icon: ImageVector)
@@ -51,6 +66,7 @@ private val tabs = listOf(
     TabItem(Routes.GAMES, "Parties", Icons.Filled.History),
     TabItem(Routes.DECKS, "Decks", Icons.Filled.Style),
     TabItem(Routes.STATS, "Stats", Icons.Filled.Insights),
+    TabItem(Routes.JEUX, "Jeux", Icons.Filled.Casino),
     TabItem(Routes.SETTINGS, "Réglages", Icons.Filled.Settings)
 )
 
@@ -116,6 +132,68 @@ fun AppRoot(
             }
             composable(Routes.STATS) {
                 StatsScreen(state = state, contentPadding = innerPadding)
+            }
+            composable(Routes.JEUX) {
+                JeuxScreen(
+                    state = state,
+                    contentPadding = innerPadding,
+                    onNouveauJeu = { navController.navigate(Routes.jeuForm()) },
+                    onOuvrirJeu = { navController.navigate(Routes.jeuDetail(it)) }
+                )
+            }
+            composable(
+                route = "${Routes.JEU_FORM}?id={id}",
+                arguments = listOf(navArgument("id") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                })
+            ) { entry ->
+                val id = entry.arguments?.getString("id").orEmpty().ifEmpty { null }
+                JeuFormScreen(
+                    state = state,
+                    viewModel = viewModel,
+                    gameId = id,
+                    onDone = { navController.popBackStack() },
+                    onSupprime = {
+                        navController.popBackStack(Routes.JEUX, inclusive = false)
+                    }
+                )
+            }
+            composable(
+                route = "${Routes.JEU_DETAIL}/{gameId}",
+                arguments = listOf(navArgument("gameId") { type = NavType.StringType })
+            ) { entry ->
+                val gameId = entry.arguments?.getString("gameId").orEmpty()
+                JeuDetailScreen(
+                    state = state,
+                    gameId = gameId,
+                    onRetour = { navController.popBackStack() },
+                    onModifierJeu = { navController.navigate(Routes.jeuForm(it)) },
+                    onNouvellePartie = { navController.navigate(Routes.partieJeu(it)) },
+                    onOuvrirPartie = { jeu, partie ->
+                        navController.navigate(Routes.partieJeu(jeu, partie))
+                    }
+                )
+            }
+            composable(
+                route = "${Routes.PARTIE_JEU}/{gameId}?matchId={matchId}",
+                arguments = listOf(
+                    navArgument("gameId") { type = NavType.StringType },
+                    navArgument("matchId") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) { entry ->
+                val gameId = entry.arguments?.getString("gameId").orEmpty()
+                val matchId = entry.arguments?.getString("matchId").orEmpty().ifEmpty { null }
+                PartieJeuFormScreen(
+                    state = state,
+                    viewModel = viewModel,
+                    gameId = gameId,
+                    matchId = matchId,
+                    onDone = { navController.popBackStack() }
+                )
             }
             composable(Routes.SETTINGS) {
                 SettingsScreen(

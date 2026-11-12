@@ -2,7 +2,11 @@ package fr.leonelal.mtgduel
 
 import fr.leonelal.mtgduel.MtgDuelApp
 import fr.leonelal.mtgduel.data.AppState
+import fr.leonelal.mtgduel.data.CustomGame
+import fr.leonelal.mtgduel.data.CustomMatch
 import fr.leonelal.mtgduel.data.Deck
+import fr.leonelal.mtgduel.data.MatchParticipant
+import fr.leonelal.mtgduel.data.ScoringMode
 import fr.leonelal.mtgduel.data.Game
 import fr.leonelal.mtgduel.data.GameSide
 import fr.leonelal.mtgduel.data.Player
@@ -80,5 +84,55 @@ class SerializationTest {
         // playerOne/playerTwo restent utilisables même si la liste est vide
         assertEquals("Moi", decoded.playerOne.name)
         assertEquals("Mon copain", decoded.playerTwo.name)
+    }
+
+    @Test
+    fun `un fichier anterieur aux autres jeux reste lisible`() {
+        val ancien = """
+            {
+              "schemaVersion": 2,
+              "players": [{"id":"p1","name":"Léo","updatedAt":1}],
+              "decks": [],
+              "games": []
+            }
+        """.trimIndent()
+        val decode = json.decodeFromString(AppState.serializer(), ancien)
+        assertTrue(decode.allCustomGames.isEmpty())
+        assertTrue(decode.allCustomMatches.isEmpty())
+        assertEquals("Léo", decode.playerName("p1"))
+    }
+
+    @Test
+    fun `les jeux et leurs parties se relisent a l identique`() {
+        val avec = state.copy(
+            allCustomGames = listOf(
+                CustomGame(id = "j1", name = "Skull King", scoring = ScoringMode.POINTS_MAX, createdAt = 10)
+            ),
+            allCustomMatches = listOf(
+                CustomMatch(
+                    id = "m1", gameId = "j1", playedAt = 20,
+                    participants = listOf(
+                        MatchParticipant("Léo", 72),
+                        MatchParticipant("Alex", -15),
+                        MatchParticipant("Camille", 0)
+                    ),
+                    notes = "Manche décisive"
+                )
+            )
+        )
+        val relu = json.decodeFromString(AppState.serializer(), json.encodeToString(AppState.serializer(), avec))
+        assertEquals(avec, relu)
+        assertEquals(3, relu.allCustomMatches.single().participants.size)
+        assertEquals(ScoringMode.POINTS_MAX, relu.allCustomGames.single().scoring)
+    }
+
+    @Test
+    fun `le mode de comptage est stocke sous un nom stable`() {
+        val encode = json.encodeToString(
+            AppState.serializer(),
+            AppState(allCustomGames = listOf(CustomGame(id = "j1", name = "X", scoring = ScoringMode.POINTS_MIN)))
+        )
+        // Renommer l'enum ne doit pas invalider les données déjà enregistrées.
+        assertTrue(encode.contains("\"points_min\""), encode)
     }
 }

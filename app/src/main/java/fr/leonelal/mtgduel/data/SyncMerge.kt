@@ -18,7 +18,9 @@ object SyncMerge {
         schemaVersion = maxOf(local.schemaVersion, remote.schemaVersion),
         players = mergePlayers(local.players, remote.players),
         allDecks = mergeById(local.allDecks, remote.allDecks, { it.id }, { it.updatedAt }),
-        allGames = mergeById(local.allGames, remote.allGames, { it.id }, { it.updatedAt })
+        allGames = mergeById(local.allGames, remote.allGames, { it.id }, { it.updatedAt }),
+        allCustomGames = mergeById(local.allCustomGames, remote.allCustomGames, { it.id }, { it.updatedAt }),
+        allCustomMatches = mergeById(local.allCustomMatches, remote.allCustomMatches, { it.id }, { it.updatedAt })
     )
 
     /**

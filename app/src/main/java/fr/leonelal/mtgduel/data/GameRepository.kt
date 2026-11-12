@@ -116,7 +116,56 @@ class GameRepository(
         AppState(
             players = AppState.defaultPlayers.map { it.copy(updatedAt = instant) },
             allDecks = current.allDecks.map { if (it.deleted) it else it.copy(deleted = true, updatedAt = instant) },
-            allGames = current.allGames.map { if (it.deleted) it else it.copy(deleted = true, updatedAt = instant) }
+            allGames = current.allGames.map { if (it.deleted) it else it.copy(deleted = true, updatedAt = instant) },
+            allCustomGames = current.allCustomGames.map { if (it.deleted) it else it.copy(deleted = true, updatedAt = instant) },
+            allCustomMatches = current.allCustomMatches.map { if (it.deleted) it else it.copy(deleted = true, updatedAt = instant) }
+        )
+    }
+
+    // ----------------------------------------------------- autres jeux
+
+    fun upsertCustomGame(jeu: CustomGame) = mutate { current ->
+        val horodate = jeu.copy(updatedAt = now())
+        val exists = current.allCustomGames.any { it.id == jeu.id }
+        current.copy(
+            allCustomGames = if (exists) {
+                current.allCustomGames.map { if (it.id == jeu.id) horodate else it }
+            } else {
+                current.allCustomGames + horodate
+            }
+        )
+    }
+
+    /** Supprimer un jeu retire aussi ses parties : les garder n'aurait aucun sens. */
+    fun deleteCustomGame(gameId: String) = mutate { current ->
+        val instant = now()
+        current.copy(
+            allCustomGames = current.allCustomGames.map {
+                if (it.id == gameId) it.copy(deleted = true, updatedAt = instant) else it
+            },
+            allCustomMatches = current.allCustomMatches.map {
+                if (it.gameId == gameId && !it.deleted) it.copy(deleted = true, updatedAt = instant) else it
+            }
+        )
+    }
+
+    fun upsertCustomMatch(partie: CustomMatch) = mutate { current ->
+        val horodate = partie.copy(updatedAt = now())
+        val exists = current.allCustomMatches.any { it.id == partie.id }
+        current.copy(
+            allCustomMatches = if (exists) {
+                current.allCustomMatches.map { if (it.id == partie.id) horodate else it }
+            } else {
+                current.allCustomMatches + horodate
+            }
+        )
+    }
+
+    fun deleteCustomMatch(matchId: String) = mutate { current ->
+        current.copy(
+            allCustomMatches = current.allCustomMatches.map {
+                if (it.id == matchId) it.copy(deleted = true, updatedAt = now()) else it
+            }
         )
     }
 
@@ -141,10 +190,19 @@ class GameRepository(
         mutate { current ->
             val knownDecks = current.allDecks.map { it.id }.toSet()
             val knownGames = current.allGames.map { it.id }.toSet()
+            val knownCustomGames = current.allCustomGames.map { it.id }.toSet()
+            val knownCustomMatches = current.allCustomMatches.map { it.id }.toSet()
             val newDecks = imported.allDecks.filterNot { it.id in knownDecks }
             val newGames = imported.allGames.filterNot { it.id in knownGames }
-            added = newGames.count { !it.deleted }
-            current.copy(allDecks = current.allDecks + newDecks, allGames = current.allGames + newGames)
+            val newCustomGames = imported.allCustomGames.filterNot { it.id in knownCustomGames }
+            val newCustomMatches = imported.allCustomMatches.filterNot { it.id in knownCustomMatches }
+            added = newGames.count { !it.deleted } + newCustomMatches.count { !it.deleted }
+            current.copy(
+                allDecks = current.allDecks + newDecks,
+                allGames = current.allGames + newGames,
+                allCustomGames = current.allCustomGames + newCustomGames,
+                allCustomMatches = current.allCustomMatches + newCustomMatches
+            )
         }
         added
     }
