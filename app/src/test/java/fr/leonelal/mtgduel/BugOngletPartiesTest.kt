@@ -48,7 +48,7 @@ class BugOngletPartiesTest {
     fun `au lancement avec des decks mais aucune partie l historique s affiche`() {
         ecrireEtat(
             AppState(
-                players = listOf(Player("p1", "Moi"), Player("p2", "Mon copain")),
+                allPlayers = listOf(Player("p1", "Moi"), Player("p2", "Mon copain")),
                 allDecks = listOf(
                     Deck("d1", "Atraxa", "p1", listOf("W", "U", "B", "G")),
                     Deck("d2", "Krenko", "p2", listOf("R"))
@@ -83,7 +83,7 @@ class BugOngletPartiesTest {
     fun `les deux joueurs peuvent porter le meme nom sans bloquer l ecran des decks`() {
         ecrireEtat(
             AppState(
-                players = listOf(Player("p1", "Leo"), Player("p2", "Leo")),
+                allPlayers = listOf(Player("p1", "Leo"), Player("p2", "Leo")),
                 allDecks = listOf(Deck("d1", "Atraxa", "p1"), Deck("d2", "Krenko", "p2")),
                 allGames = emptyList()
             )

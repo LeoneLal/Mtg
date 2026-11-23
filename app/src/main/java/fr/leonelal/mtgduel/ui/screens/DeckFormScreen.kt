@@ -55,11 +55,11 @@ fun DeckFormScreen(
     onDone: () -> Unit
 ) {
     val existing = remember(deckId, state.decks) { state.decks.firstOrNull { it.id == deckId } }
-    val p1 = state.playerOne
-    val p2 = state.playerTwo
 
     var name by rememberSaveable(deckId) { mutableStateOf(existing?.name ?: "") }
-    var ownerId by rememberSaveable(deckId) { mutableStateOf<String?>(existing?.ownerId ?: p1.id) }
+    var ownerId by rememberSaveable(deckId) {
+        mutableStateOf<String?>(existing?.ownerId ?: state.playerOne.id)
+    }
     var colors by rememberSaveable(deckId) { mutableStateOf(existing?.colors?.joinToString(",") ?: "") }
     var note by rememberSaveable(deckId) { mutableStateOf(existing?.note ?: "") }
     var archived by rememberSaveable(deckId) { mutableStateOf(existing?.archived ?: false) }
@@ -138,13 +138,16 @@ fun DeckFormScreen(
                 )
 
                 Text("À qui appartient ce deck ?", style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(p1.id to p1.name, p2.id to p2.name, null to "Commun").forEach { (id, label) ->
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val proprietaires = state.players.map { it.id to it.name } + (null to "Commun")
+                    proprietaires.forEach { (id, label) ->
                         FilterChip(
                             selected = ownerId == id,
                             onClick = { ownerId = id },
-                            label = { Text(label, maxLines = 1) },
-                            modifier = Modifier.weight(1f)
+                            label = { Text(label, maxLines = 1) }
                         )
                     }
                 }

@@ -42,27 +42,34 @@ data class MatchupStats(
 
 data class OverallStats(
     val totalGames: Int,
-    val gamesWonByStarter: Int,
+    /** Parties à deux : seules elles permettent de juger l'avantage du premier joueur. */
+    val duels: Int,
+    val duelsWonByStarter: Int,
+    val multiplayerGames: Int,
     val avgLoserLife: Double?,
     val avgTurns: Double?,
     val firstGame: Long?,
     val lastGame: Long?,
     val endReasonCounts: List<Pair<String, Int>>
 ) {
-    val starterWinRate: Double get() = if (totalGames == 0) 0.0 else gamesWonByStarter.toDouble() / totalGames
+    val starterWinRate: Double get() = if (duels == 0) 0.0 else duelsWonByStarter.toDouble() / duels
 }
 
 object StatsEngine {
 
     fun overall(games: List<Game>): OverallStats {
         val valid = games.filter { it.isValid }
-        val loserLives = valid.mapNotNull { it.loserLifeRemaining }
+        val duels = valid.filterNot { it.isMultiplayer }
+        // Chaque perdant compte : à plusieurs, il y en a plus d'un par partie.
+        val loserLives = valid.flatMap { partie -> partie.loserSides.map { it.lifeRemaining } }
         val turns = valid.mapNotNull { it.turns }
         val reasons = valid.groupingBy { it.endReason }.eachCount()
             .toList().sortedByDescending { it.second }
         return OverallStats(
             totalGames = valid.size,
-            gamesWonByStarter = valid.count { it.winnerId == it.firstPlayerId },
+            duels = duels.size,
+            duelsWonByStarter = duels.count { it.winnerId == it.firstPlayerId },
+            multiplayerGames = valid.size - duels.size,
             avgLoserLife = loserLives.averageOrNull(),
             avgTurns = turns.map { it.toDouble() }.averageOrNull(),
             firstGame = valid.minOfOrNull { it.playedAt },
@@ -116,11 +123,13 @@ object StatsEngine {
         return decks.map { deck ->
             val played = valid.filter { it.involvesDeck(deck.id) }
             val wins = played.count { game -> game.winnerSide?.deckId == deck.id }
+            // On cherche le siège qui a joué CE deck, et non le premier perdant de la partie :
+            // au-delà de deux joueurs, ce ne sont pas les mêmes.
             val lifeOnWin = played.mapNotNull { game ->
-                game.winnerSide?.takeIf { it.deckId == deck.id }?.lifeRemaining
+                game.sides.firstOrNull { it.deckId == deck.id && it.playerId == game.winnerId }?.lifeRemaining
             }
             val lifeOnLoss = played.mapNotNull { game ->
-                game.loserSide?.takeIf { it.deckId == deck.id }?.lifeRemaining
+                game.sides.firstOrNull { it.deckId == deck.id && it.playerId != game.winnerId }?.lifeRemaining
             }
             DeckStats(
                 deck = deck,
@@ -135,6 +144,7 @@ object StatsEngine {
             .sortedWith(compareByDescending<DeckStats> { it.games }.thenByDescending { it.winRate })
     }
 
+    /** Les confrontations n'ont de sens qu'entre deux decks : les parties à plusieurs sont exclues. */
     fun matchups(games: List<Game>): List<MatchupStats> {
         val valid = games.filter { it.isValid && it.sides.size == 2 }
         return valid.groupBy { game ->

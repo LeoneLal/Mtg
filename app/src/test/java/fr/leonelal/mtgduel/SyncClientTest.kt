@@ -50,7 +50,7 @@ class SyncClientTest {
     fun `l etat local est envoye au format attendu par l API`() = runBlocking {
         repondre(200, """{"schemaVersion":2,"players":[],"decks":[],"games":[]}""")
         val local = AppState(
-            players = listOf(Player("p1", "Moi", 1), Player("p2", "Mon copain", 1)),
+            allPlayers = listOf(Player("p1", "Moi", 1), Player("p2", "Mon copain", 1)),
             allDecks = listOf(Deck(id = "d1", name = "Atraxa", ownerId = "p1", createdAt = 5, updatedAt = 5))
         )
         client.push(reglages(), local)

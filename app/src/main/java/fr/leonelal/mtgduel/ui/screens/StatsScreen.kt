@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,8 +50,9 @@ import fr.leonelal.mtgduel.ui.victoires
 fun StatsScreen(state: AppState, contentPadding: PaddingValues) {
     val games = state.games
     val overall = remember(games) { StatsEngine.overall(games) }
-    val statsOne = remember(games, state.players) { StatsEngine.forPlayer(state.playerOne, games) }
-    val statsTwo = remember(games, state.players) { StatsEngine.forPlayer(state.playerTwo, games) }
+    val statsParJoueur = remember(games, state.players) {
+        state.players.map { StatsEngine.forPlayer(it, games) }.filter { it.games > 0 }
+    }
     val deckStats = remember(games, state.decks) { StatsEngine.forDecks(state.decks, games) }
     val matchups = remember(games) { StatsEngine.matchups(games).take(12) }
 
@@ -82,12 +84,24 @@ fun StatsScreen(state: AppState, contentPadding: PaddingValues) {
             item {
                 SectionCard(title = "Vue d'ensemble") {
                     StatLine("Parties jouées", "${overall.totalGames}", emphasis = true)
-                    WinBar(
-                        leftLabel = state.playerOne.name,
-                        leftValue = statsOne.wins,
-                        rightLabel = state.playerTwo.name,
-                        rightValue = statsTwo.wins
-                    )
+                    if (overall.multiplayerGames > 0) {
+                        StatLine(
+                            "Dont à plusieurs",
+                            "${overall.multiplayerGames}"
+                        )
+                    }
+                    if (statsParJoueur.size == 2) {
+                        WinBar(
+                            leftLabel = statsParJoueur[0].player.name,
+                            leftValue = statsParJoueur[0].wins,
+                            rightLabel = statsParJoueur[1].player.name,
+                            rightValue = statsParJoueur[1].wins
+                        )
+                    } else {
+                        statsParJoueur.sortedByDescending { it.wins }.forEach { joueur ->
+                            StatLine(joueur.player.name, victoires(joueur.wins))
+                        }
+                    }
                     overall.firstGame?.let {
                         StatLine("Première partie", formatShortDate(it))
                     }
@@ -108,13 +122,21 @@ fun StatsScreen(state: AppState, contentPadding: PaddingValues) {
                 SectionCard(title = "Avantage du premier joueur") {
                     StatLine(
                         "Parties gagnées par celui qui commence",
-                        "${overall.gamesWonByStarter} / ${overall.totalGames}",
+                        "${overall.duelsWonByStarter} / ${overall.duels}",
                         emphasis = true
                     )
                     StatLine("Soit", formatPercent(overall.starterWinRate))
+                    if (overall.multiplayerGames > 0) {
+                        Text(
+                            "Calculé sur les parties à deux uniquement : à plusieurs, " +
+                                "commencer ne se compare pas de la même façon.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Text(
                         text = when {
-                            overall.totalGames < 10 ->
+                            overall.duels < 10 ->
                                 "Encore trop peu de parties pour conclure."
                             overall.starterWinRate > 0.6 ->
                                 "Commencer semble être un vrai avantage chez vous."
@@ -129,8 +151,9 @@ fun StatsScreen(state: AppState, contentPadding: PaddingValues) {
                 }
             }
 
-            item { PlayerStatsCard(statsOne) }
-            item { PlayerStatsCard(statsTwo) }
+            items(statsParJoueur, key = { it.player.id }) { stats ->
+                PlayerStatsCard(stats)
+            }
 
             if (deckStats.isNotEmpty()) {
                 item {

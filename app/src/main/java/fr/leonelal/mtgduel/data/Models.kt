@@ -4,13 +4,18 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
-/** Un des deux joueurs. L'application est pensée pour un duel récurrent entre 2 personnes. */
+/**
+ * Un joueur. Le duel à deux reste le cas courant, mais la liste peut accueillir
+ * autant de joueurs que nécessaire pour les parties multijoueurs.
+ */
 @Serializable
 data class Player(
-    val id: String,
+    val id: String = UUID.randomUUID().toString(),
     val name: String,
     /** Date de dernière modification, en millis : arbitre la fusion entre appareils. */
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
+    /** Pierre tombale : voir [Deck.deleted]. */
+    val deleted: Boolean = false
 )
 
 /** Un deck utilisé par l'un des joueurs (ou partagé). */
@@ -83,9 +88,20 @@ data class Game(
     fun involvesDeck(deckId: String): Boolean = sides.any { it.deckId == deckId }
 
     val isValid: Boolean
-        get() = sides.size == 2 &&
-            sides.map { it.playerId }.toSet().size == 2 &&
+        get() = sides.size >= 2 &&
+            sides.map { it.playerId }.toSet().size == sides.size &&
             sides.any { it.playerId == winnerId }
+
+    /** Le vainqueur d'abord, puis les autres : l'ordre d'affichage d'une partie. */
+    val sidesOrdered: List<GameSide>
+        get() = sides.sortedByDescending { it.playerId == winnerId }
+
+    /** Les perdants, dans l'ordre de la saisie. */
+    val loserSides: List<GameSide>
+        get() = sides.filterNot { it.playerId == winnerId }
+
+    val isMultiplayer: Boolean
+        get() = sides.size > 2
 }
 
 object Formats {
@@ -147,13 +163,17 @@ object MtgColors {
 @Serializable
 data class AppState(
     val schemaVersion: Int = 2,
-    val players: List<Player> = defaultPlayers,
+    @SerialName("players") val allPlayers: List<Player> = defaultPlayers,
     @SerialName("decks") val allDecks: List<Deck> = emptyList(),
     @SerialName("games") val allGames: List<Game> = emptyList(),
     // Section « Autres jeux », indépendante de Magic.
     @SerialName("customGames") val allCustomGames: List<CustomGame> = emptyList(),
     @SerialName("customMatches") val allCustomMatches: List<CustomMatch> = emptyList()
 ) {
+    /** Joueurs actifs, dans l'ordre d'ajout. */
+    val players: List<Player> get() = allPlayers.filterNot { it.deleted }
+
+    /** Les deux premiers joueurs : le duel reste le cas par défaut à la saisie. */
     val playerOne: Player get() = players.getOrElse(0) { defaultPlayers[0] }
     val playerTwo: Player get() = players.getOrElse(1) { defaultPlayers[1] }
 
@@ -163,8 +183,11 @@ data class AppState(
     /** Parties visibles : tout sauf les pierres tombales, et seulement les parties cohérentes. */
     val games: List<Game> get() = allGames.filter { !it.deleted && it.isValid }
 
+    /** Résout aussi les joueurs retirés, pour que les anciennes parties restent lisibles. */
     fun playerName(id: String?): String =
-        players.firstOrNull { it.id == id }?.name ?: "Joueur inconnu"
+        allPlayers.firstOrNull { it.id == id }?.name ?: "Joueur inconnu"
+
+    fun player(id: String?): Player? = allPlayers.firstOrNull { it.id == id }
 
     fun deck(id: String?): Deck? = allDecks.firstOrNull { it.id == id }
 

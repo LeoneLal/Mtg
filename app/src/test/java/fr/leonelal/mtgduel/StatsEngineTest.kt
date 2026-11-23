@@ -72,7 +72,9 @@ class StatsEngineTest {
         val overall = StatsEngine.overall(games)
         assertEquals(5, overall.totalGames)
         // g1, g2, g3, g4 gagnées par celui qui commence ; g5 non.
-        assertEquals(4, overall.gamesWonByStarter)
+        assertEquals(5, overall.duels)
+        assertEquals(4, overall.duelsWonByStarter)
+        assertEquals(0, overall.multiplayerGames)
         assertEquals(0.8, overall.starterWinRate, 0.0001)
     }
 
@@ -166,7 +168,7 @@ class StatsEngineTest {
     @Test
     fun `les noms de decks et de joueurs sont resolus depuis l etat`() {
         val state = AppState(
-            players = listOf(moi, lui),
+            allPlayers = listOf(moi, lui),
             allDecks = listOf(atraxa, krenko),
             allGames = games
         )
@@ -179,7 +181,7 @@ class StatsEngineTest {
     @Test
     fun `les decks du joueur sont proposes en premier`() {
         val state = AppState(
-            players = listOf(moi, lui),
+            allPlayers = listOf(moi, lui),
             allDecks = listOf(krenko, atraxa, Deck(id = "d5", name = "Commun", ownerId = null)),
             allGames = emptyList()
         )
@@ -190,7 +192,7 @@ class StatsEngineTest {
     @Test
     fun `les decks archives ne sont plus proposes`() {
         val state = AppState(
-            players = listOf(moi, lui),
+            allPlayers = listOf(moi, lui),
             allDecks = listOf(atraxa.copy(archived = true), krenko),
             allGames = emptyList()
         )

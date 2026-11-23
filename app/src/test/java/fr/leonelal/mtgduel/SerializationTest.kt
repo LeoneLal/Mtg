@@ -24,7 +24,7 @@ class SerializationTest {
     }
 
     private val state = AppState(
-        players = listOf(Player("p1", "Moi"), Player("p2", "Lui")),
+        allPlayers = listOf(Player("p1", "Moi"), Player("p2", "Lui")),
         allDecks = listOf(Deck(id = "d1", name = "Atraxa", ownerId = "p1", colors = listOf("W", "U", "B", "G"))),
         allGames = listOf(
             Game(

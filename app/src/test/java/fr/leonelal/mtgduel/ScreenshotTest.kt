@@ -49,8 +49,10 @@ class ScreenshotTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private val moi = Player("p1", "Moi")
-    private val copain = Player("p2", "Mon copain")
+    private val moi = Player("p1", "Léo")
+    private val copain = Player("p2", "Alex")
+    private val camille = Player("p3", "Camille")
+    private val sam = Player("p4", "Sam")
     private val atraxa = Deck("d1", "Atraxa Superfriends", "p1", listOf("W", "U", "B", "G"), "Commandant : Atraxa, Praetors' Voice")
     private val krenko = Deck("d2", "Krenko Gobelins", "p2", listOf("R"), "Commandant : Krenko, Mob Boss")
     private val edgar = Deck("d3", "Edgar Markov", "p2", listOf("W", "B", "R"))
@@ -69,7 +71,7 @@ class ScreenshotTest {
     )
 
     private val donnees = AppState(
-        players = listOf(moi, copain),
+        allPlayers = listOf(moi, copain, camille, sam),
         allDecks = listOf(atraxa, krenko, edgar),
         allGames = listOf(
             Game(
@@ -91,6 +93,18 @@ class ScreenshotTest {
                 id = "g4", playedAt = jours(6), firstPlayerId = "p2", winnerId = "p2",
                 sides = listOf(GameSide("p1", "d1", 4), GameSide("p2", "d2", 31)),
                 endReason = EndReasons.CONCEDE
+            ),
+            // Une partie à quatre, pour montrer le multijoueur.
+            Game(
+                id = "g5", playedAt = jours(0) - 3_600_000, firstPlayerId = "p3", winnerId = "p1",
+                sides = listOf(
+                    GameSide("p1", "d1", 23),
+                    GameSide("p2", "d2", 0),
+                    GameSide("p3", "d3", -4),
+                    GameSide("p4", "d2", 6)
+                ),
+                endReason = EndReasons.COMMANDER_DAMAGE, turns = 14,
+                notes = "Première partie à quatre."
             )
         ),
         allCustomGames = listOf(skullKing, monopolyDeal, mixmo),

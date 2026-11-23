@@ -24,7 +24,7 @@ class ContratDeSynchroTest {
     private val json = Json { encodeDefaults = true }
 
     private val etat = AppState(
-        players = listOf(Player("p1", "Léo", 1000), Player("p2", "Mon copain", 1000)),
+        allPlayers = listOf(Player("p1", "Léo", 1000), Player("p2", "Mon copain", 1000)),
         allDecks = listOf(
             Deck("d1", "Atraxa", "p1", listOf("W", "U", "B", "G"), "Commandant", false, 900, 900, false),
             Deck("d2", "Krenko « Gobelins »", "p2", listOf("R"), "", false, 950, 950, true)

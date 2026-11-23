@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,11 +21,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +56,7 @@ import fr.leonelal.mtgduel.data.EndReasons
 import fr.leonelal.mtgduel.data.Formats
 import fr.leonelal.mtgduel.data.Game
 import fr.leonelal.mtgduel.data.GameSide
+import fr.leonelal.mtgduel.data.Player
 import fr.leonelal.mtgduel.ui.AppViewModel
 import fr.leonelal.mtgduel.ui.ColorPips
 import fr.leonelal.mtgduel.ui.PickerField
@@ -63,6 +65,9 @@ import fr.leonelal.mtgduel.ui.formatFullDate
 import fr.leonelal.mtgduel.ui.formatTime
 import java.util.Calendar
 
+private const val JOUEURS_MIN = 2
+private const val JOUEURS_MAX = 8
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun GameFormScreen(
@@ -70,17 +75,23 @@ fun GameFormScreen(
     viewModel: AppViewModel,
     gameId: String?,
     onDone: () -> Unit,
-    onManageDecks: () -> Unit
+    onManageDecks: () -> Unit,
+    onManagePlayers: () -> Unit
 ) {
     val context = LocalContext.current
-    val existing = remember(gameId, state.games) { state.games.firstOrNull { it.id == gameId } }
-    val p1 = state.playerOne
-    val p2 = state.playerTwo
-    val lastGame = remember(state.games) { state.gamesNewestFirst.firstOrNull() }
+    val existing = remember(gameId, state.allGames) { state.allGames.firstOrNull { it.id == gameId } }
+    val roster = state.players
+    val lastGame = remember(state.allGames) { state.gamesNewestFirst.firstOrNull() }
 
-    fun defaultDeck(playerId: String): String? {
-        val previous = lastGame?.deckIdOf(playerId)
-        return previous?.takeIf { id -> state.decks.any { it.id == id && !it.archived } }
+    /** Sièges de départ : la partie précédente si elle existe, sinon le duel habituel. */
+    val siegesInitiaux = remember(existing, lastGame, roster) {
+        val ids = when {
+            existing != null -> existing.sides.map { it.playerId }
+            lastGame != null -> lastGame.sides.map { it.playerId }.filter { id -> roster.any { it.id == id } }
+            else -> emptyList()
+        }
+        if (ids.size >= JOUEURS_MIN) ids
+        else roster.take(JOUEURS_MIN).map { it.id }.ifEmpty { listOf(state.playerOne.id, state.playerTwo.id) }
     }
 
     var playedAt by rememberSaveable(gameId) {
@@ -92,78 +103,113 @@ fun GameFormScreen(
     var startingLife by rememberSaveable(gameId) {
         mutableStateOf(existing?.startingLife ?: lastGame?.startingLife ?: 40)
     }
+    var joueurs by rememberSaveable(gameId) { mutableStateOf(ArrayList(siegesInitiaux)) }
+    var decks by rememberSaveable(gameId) {
+        mutableStateOf(
+            ArrayList(
+                siegesInitiaux.map { playerId ->
+                    val choisi = existing?.deckIdOf(playerId) ?: lastGame?.deckIdOf(playerId)
+                    choisi?.takeIf { id -> state.decks.any { it.id == id } } ?: ""
+                }
+            )
+        )
+    }
+    var pointsDeVie by rememberSaveable(gameId) {
+        mutableStateOf(
+            ArrayList(
+                siegesInitiaux.map { playerId ->
+                    existing?.sideOf(playerId)?.lifeRemaining?.toString() ?: ""
+                }
+            )
+        )
+    }
     var firstPlayerId by rememberSaveable(gameId) {
-        mutableStateOf(existing?.firstPlayerId ?: p1.id)
-    }
-    var deckOne by rememberSaveable(gameId) {
-        mutableStateOf(existing?.deckIdOf(p1.id) ?: defaultDeck(p1.id))
-    }
-    var deckTwo by rememberSaveable(gameId) {
-        mutableStateOf(existing?.deckIdOf(p2.id) ?: defaultDeck(p2.id))
+        mutableStateOf(existing?.firstPlayerId ?: siegesInitiaux.firstOrNull().orEmpty())
     }
     var winnerId by rememberSaveable(gameId) { mutableStateOf(existing?.winnerId) }
-    var lifeOne by rememberSaveable(gameId) {
-        mutableStateOf(existing?.sideOf(p1.id)?.lifeRemaining?.toString() ?: "")
-    }
-    var lifeTwo by rememberSaveable(gameId) {
-        mutableStateOf(existing?.sideOf(p2.id)?.lifeRemaining?.toString() ?: "")
-    }
-    var lifeOneTouched by rememberSaveable(gameId) { mutableStateOf(existing != null) }
-    var lifeTwoTouched by rememberSaveable(gameId) { mutableStateOf(existing != null) }
     var endReason by rememberSaveable(gameId) {
         mutableStateOf(existing?.endReason ?: EndReasons.DAMAGE)
     }
-    var turnsText by rememberSaveable(gameId) {
-        mutableStateOf(existing?.turns?.toString() ?: "")
-    }
+    var turnsText by rememberSaveable(gameId) { mutableStateOf(existing?.turns?.toString() ?: "") }
     var notes by rememberSaveable(gameId) { mutableStateOf(existing?.notes ?: "") }
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
-    var showErrors by rememberSaveable { mutableStateOf(false) }
+    var erreur by rememberSaveable(gameId) { mutableStateOf("") }
 
-    fun refreshLifeDefaults(winner: String?, life: Int) {
-        if (winner == null) return
-        if (!lifeOneTouched) lifeOne = (if (winner == p1.id) life else 0).toString()
-        if (!lifeTwoTouched) lifeTwo = (if (winner == p2.id) life else 0).toString()
-    }
-
-    val decksForOne = remember(state.decks, deckOne) {
-        val list = state.decksFor(p1.id)
-        val current = state.deck(deckOne)
-        if (current != null && list.none { it.id == current.id }) list + current else list
-    }
-    val decksForTwo = remember(state.decks, deckTwo) {
-        val list = state.decksFor(p2.id)
-        val current = state.deck(deckTwo)
-        if (current != null && list.none { it.id == current.id }) list + current else list
-    }
-
-    val deckOneMissing = deckOne == null
-    val deckTwoMissing = deckTwo == null
-    val winnerMissing = winnerId == null
-    val canSave = !deckOneMissing && !deckTwoMissing && !winnerMissing
-
-    fun save() {
-        if (!canSave) {
-            showErrors = true
-            return
-        }
-        val game = Game(
-            id = existing?.id ?: java.util.UUID.randomUUID().toString(),
-            playedAt = playedAt,
-            format = format,
-            startingLife = startingLife,
-            firstPlayerId = firstPlayerId,
-            winnerId = winnerId!!,
-            sides = listOf(
-                GameSide(p1.id, deckOne!!, lifeOne.toIntOrNull() ?: 0),
-                GameSide(p2.id, deckTwo!!, lifeTwo.toIntOrNull() ?: 0)
-            ),
-            endReason = endReason,
-            turns = turnsText.toIntOrNull(),
-            notes = notes.trim()
+    /** Après le choix du vainqueur, les PV se pré-remplissent : PV de départ pour lui, 0 pour les autres. */
+    fun prremplirPointsDeVie(vainqueur: String?, vie: Int) {
+        if (vainqueur == null || existing != null) return
+        pointsDeVie = ArrayList(
+            joueurs.map { playerId -> (if (playerId == vainqueur) vie else 0).toString() }
         )
-        viewModel.saveGame(game)
-        onDone()
+    }
+
+    fun changerNombreDeJoueurs(cible: Int) {
+        val borne = cible.coerceIn(JOUEURS_MIN, JOUEURS_MAX.coerceAtMost(maxOf(roster.size, JOUEURS_MIN)))
+        val nouveauxJoueurs = ArrayList(joueurs)
+        val nouveauxDecks = ArrayList(decks)
+        val nouveauxPv = ArrayList(pointsDeVie)
+        while (nouveauxJoueurs.size < borne) {
+            val libre = roster.firstOrNull { joueur -> nouveauxJoueurs.none { it == joueur.id } }
+            nouveauxJoueurs.add(libre?.id ?: "")
+            nouveauxDecks.add("")
+            nouveauxPv.add("")
+        }
+        while (nouveauxJoueurs.size > borne) {
+            val retire = nouveauxJoueurs.removeAt(nouveauxJoueurs.size - 1)
+            nouveauxDecks.removeAt(nouveauxDecks.size - 1)
+            nouveauxPv.removeAt(nouveauxPv.size - 1)
+            if (winnerId == retire) winnerId = null
+            if (firstPlayerId == retire) firstPlayerId = nouveauxJoueurs.firstOrNull().orEmpty()
+        }
+        joueurs = nouveauxJoueurs
+        decks = nouveauxDecks
+        pointsDeVie = nouveauxPv
+        erreur = ""
+    }
+
+    fun choisirJoueur(index: Int, playerId: String) {
+        val ancien = joueurs.getOrNull(index)
+        joueurs = ArrayList(joueurs).also { it[index] = playerId }
+        decks = ArrayList(decks).also { it[index] = "" }
+        if (winnerId == ancien) winnerId = playerId
+        if (firstPlayerId == ancien) firstPlayerId = playerId
+        erreur = ""
+    }
+
+    val participants = remember(joueurs, state.players) {
+        joueurs.mapNotNull { id -> state.player(id) }
+    }
+    val tousChoisis = joueurs.all { it.isNotBlank() } && joueurs.toSet().size == joueurs.size
+
+    fun enregistrer() {
+        when {
+            !tousChoisis -> erreur = "Chaque siège doit être occupé par un joueur différent."
+            decks.any { it.isBlank() } -> erreur = "Choisis un deck pour chaque joueur."
+            winnerId == null -> erreur = "Sélectionne le vainqueur."
+            else -> {
+                viewModel.saveGame(
+                    Game(
+                        id = existing?.id ?: java.util.UUID.randomUUID().toString(),
+                        playedAt = playedAt,
+                        format = format,
+                        startingLife = startingLife,
+                        firstPlayerId = firstPlayerId.ifBlank { joueurs.first() },
+                        winnerId = winnerId!!,
+                        sides = joueurs.mapIndexed { index, playerId ->
+                            GameSide(
+                                playerId = playerId,
+                                deckId = decks[index],
+                                lifeRemaining = pointsDeVie.getOrNull(index)?.toIntOrNull() ?: 0
+                            )
+                        },
+                        endReason = endReason,
+                        turns = turnsText.toIntOrNull(),
+                        notes = notes.trim()
+                    )
+                )
+                onDone()
+            }
+        }
     }
 
     Scaffold(
@@ -197,7 +243,7 @@ fun GameFormScreen(
             if (state.decks.isEmpty()) {
                 SectionCard(title = "Aucun deck enregistré") {
                     Text(
-                        "Ajoute d'abord au moins un deck pour chacun de vous.",
+                        "Ajoute d'abord au moins un deck.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Button(onClick = onManageDecks) { Text("Gérer les decks") }
@@ -259,7 +305,7 @@ fun GameFormScreen(
                             onClick = {
                                 format = name
                                 startingLife = life
-                                refreshLifeDefaults(winnerId, life)
+                                prremplirPointsDeVie(winnerId, life)
                             },
                             label = { Text(name) }
                         )
@@ -275,84 +321,99 @@ fun GameFormScreen(
                         value = startingLife.toString(),
                         onValueChange = { raw ->
                             startingLife = raw.toIntOrNull()?.coerceIn(1, 999) ?: startingLife
-                            refreshLifeDefaults(winnerId, startingLife)
-                        },
-                        step = 1
+                            prremplirPointsDeVie(winnerId, startingLife)
+                        }
                     )
                 }
             }
 
+            // ------------------------------------------------ nombre de joueurs
+            SectionCard(title = "Combien de joueurs ?") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Joueurs autour de la table",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { changerNombreDeJoueurs(joueurs.size - 1) },
+                        enabled = joueurs.size > JOUEURS_MIN,
+                        modifier = Modifier.testTag("moins-joueur-mtg")
+                    ) {
+                        Icon(Icons.Filled.Remove, contentDescription = "Un joueur de moins")
+                    }
+                    Text(
+                        text = "${joueurs.size}",
+                        style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .width(40.dp)
+                            .testTag("nombre-joueurs-mtg")
+                    )
+                    IconButton(
+                        onClick = { changerNombreDeJoueurs(joueurs.size + 1) },
+                        enabled = joueurs.size < JOUEURS_MAX && joueurs.size < roster.size,
+                        modifier = Modifier.testTag("plus-joueur-mtg")
+                    ) {
+                        Icon(Icons.Filled.PersonAdd, contentDescription = "Un joueur de plus")
+                    }
+                }
+                if (roster.size <= joueurs.size) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Pour jouer à plus, ajoute d'abord des joueurs.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = onManagePlayers) { Text("Gérer les joueurs") }
+                    }
+                }
+            }
+
+            // -------------------------------------------------------- joueurs
+            SectionCard(title = "Joueurs, decks et PV restants") {
+                joueurs.forEachIndexed { index, playerId ->
+                    if (index > 0) HorizontalDivider()
+                    SiegeJoueur(
+                        state = state,
+                        index = index,
+                        playerId = playerId,
+                        deckId = decks.getOrElse(index) { "" },
+                        pv = pointsDeVie.getOrElse(index) { "" },
+                        joueursDisponibles = roster.filter { joueur ->
+                            joueur.id == playerId || joueurs.none { it == joueur.id }
+                        },
+                        vainqueurChoisi = winnerId != null,
+                        estVainqueur = winnerId == playerId,
+                        onJoueur = { choisirJoueur(index, it) },
+                        onDeck = { decks = ArrayList(decks).also { d -> d[index] = it }; erreur = "" },
+                        onPv = { pointsDeVie = ArrayList(pointsDeVie).also { p -> p[index] = it } }
+                    )
+                }
+                TextButton(onClick = onManageDecks) { Text("Ajouter / modifier un deck") }
+            }
+
             // ---------------------------------------------------- premier tour
             SectionCard(title = "Qui a commencé ?") {
-                ChoiceRow(
-                    options = listOf(p1.id to p1.name, p2.id to p2.name),
+                ChoixParmiJoueurs(
+                    joueurs = participants,
                     selectedId = firstPlayerId,
                     onSelect = { firstPlayerId = it },
                     tagPrefix = "premier"
                 )
             }
 
-            // ---------------------------------------------------------- decks
-            SectionCard(title = "Decks joués") {
-                DeckPicker(
-                    label = p1.name,
-                    decks = decksForOne,
-                    selectedId = deckOne,
-                    onSelect = { deckOne = it },
-                    isError = showErrors && deckOneMissing,
-                    testTag = "deck-joueur-1"
-                )
-                DeckPicker(
-                    label = p2.name,
-                    decks = decksForTwo,
-                    selectedId = deckTwo,
-                    onSelect = { deckTwo = it },
-                    isError = showErrors && deckTwoMissing,
-                    testTag = "deck-joueur-2"
-                )
-                TextButton(onClick = onManageDecks) { Text("Ajouter / modifier un deck") }
-            }
-
             // ------------------------------------------------------- vainqueur
             SectionCard(title = "Qui a gagné ?") {
-                ChoiceRow(
-                    options = listOf(p1.id to p1.name, p2.id to p2.name),
+                ChoixParmiJoueurs(
+                    joueurs = participants,
                     selectedId = winnerId,
                     onSelect = {
                         winnerId = it
-                        refreshLifeDefaults(it, startingLife)
+                        prremplirPointsDeVie(it, startingLife)
                     },
                     tagPrefix = "vainqueur"
-                )
-                if (showErrors && winnerMissing) {
-                    Text(
-                        "Sélectionne le vainqueur.",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-
-            // ------------------------------------------------------------- PV
-            SectionCard(title = "Points de vie restants") {
-                LifeRow(
-                    name = p1.name,
-                    isLoser = winnerId == p2.id,
-                    value = lifeOne,
-                    onValueChange = { lifeOne = it; lifeOneTouched = true },
-                    testTag = "pv-joueur-1"
-                )
-                LifeRow(
-                    name = p2.name,
-                    isLoser = winnerId == p1.id,
-                    value = lifeTwo,
-                    onValueChange = { lifeTwo = it; lifeTwoTouched = true },
-                    testTag = "pv-joueur-2"
-                )
-                Text(
-                    text = "Les PV du perdant au moment de la défaite sont la donnée suivie ; ceux du vainqueur permettent de mesurer l'écart.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -388,8 +449,16 @@ fun GameFormScreen(
                 )
             }
 
+            if (erreur.isNotBlank()) {
+                Text(
+                    erreur,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
             Button(
-                onClick = { save() },
+                onClick = { enregistrer() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
@@ -420,92 +489,108 @@ fun GameFormScreen(
 }
 
 @Composable
-private fun DeckPicker(
-    label: String,
-    decks: List<Deck>,
-    selectedId: String?,
-    onSelect: (String) -> Unit,
-    isError: Boolean,
-    testTag: String
+private fun SiegeJoueur(
+    state: AppState,
+    index: Int,
+    playerId: String,
+    deckId: String,
+    pv: String,
+    joueursDisponibles: List<Player>,
+    vainqueurChoisi: Boolean,
+    estVainqueur: Boolean,
+    onJoueur: (String) -> Unit,
+    onDeck: (String) -> Unit,
+    onPv: (String) -> Unit
 ) {
-    val selected = decks.firstOrNull { it.id == selectedId }
-    PickerField(
-        label = label,
-        options = decks,
-        selected = selected,
-        optionLabel = { it.name + if (it.archived) " (archivé)" else "" },
-        onSelect = { onSelect(it.id) },
-        isError = isError,
-        placeholder = "Choisir un deck…",
-        optionContent = { deck ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(deck.name + if (deck.archived) " (archivé)" else "")
-                if (deck.colors.isNotEmpty()) {
-                    Spacer(Modifier.size(8.dp))
-                    ColorPips(colors = deck.colors, size = 10)
-                }
-            }
-        },
+    val decksProposes = remember(state.allDecks, playerId, deckId) {
+        val liste = if (playerId.isBlank()) state.decks else state.decksFor(playerId)
+        val courant = state.deck(deckId)
+        if (courant != null && liste.none { it.id == courant.id }) liste + courant else liste
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag(testTag)
-    )
-}
-
-@Composable
-private fun ChoiceRow(
-    options: List<Pair<String, String>>,
-    selectedId: String?,
-    onSelect: (String) -> Unit,
-    tagPrefix: String = ""
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        options.forEach { (id, label) ->
-            FilterChip(
-                selected = selectedId == id,
-                onClick = { onSelect(id) },
-                label = {
+        PickerField(
+            label = "Joueur ${index + 1}",
+            options = joueursDisponibles,
+            selected = joueursDisponibles.firstOrNull { it.id == playerId },
+            optionLabel = { it.name },
+            onSelect = { onJoueur(it.id) },
+            placeholder = "Choisir un joueur…",
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("joueur-$index")
+        )
+        PickerField(
+            label = "Deck",
+            options = decksProposes,
+            selected = decksProposes.firstOrNull { it.id == deckId },
+            optionLabel = { it.name + if (it.archived) " (archivé)" else "" },
+            onSelect = { onDeck(it.id) },
+            placeholder = "Choisir un deck…",
+            optionContent = { deck: Deck ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(deck.name + if (deck.archived) " (archivé)" else "")
+                    if (deck.colors.isNotEmpty()) {
+                        Spacer(Modifier.size(8.dp))
+                        ColorPips(colors = deck.colors, size = 10)
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("deck-$index")
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("PV restants", style = MaterialTheme.typography.bodyMedium)
+                // Le repère « à l'élimination » n'a de sens qu'une fois le vainqueur connu.
+                if (vainqueurChoisi && !estVainqueur) {
                     Text(
-                        text = label,
-                        maxLines = 1,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        "à l'élimination",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
                     )
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("$tagPrefix-$id")
-            )
+                }
+            }
+            Stepper(value = pv, onValueChange = onPv, testTag = "pv-$index")
         }
     }
 }
 
 @Composable
-private fun LifeRow(
-    name: String,
-    isLoser: Boolean,
-    value: String,
-    onValueChange: (String) -> Unit,
-    testTag: String
+private fun ChoixParmiJoueurs(
+    joueurs: List<Player>,
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+    tagPrefix: String
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+    if (joueurs.isEmpty()) {
+        Text(
+            "Choisis d'abord les joueurs.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+    @OptIn(ExperimentalLayoutApi::class)
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(name, style = MaterialTheme.typography.bodyLarge)
-            if (isLoser) {
-                Text(
-                    "PV à la défaite",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
+        joueurs.forEach { joueur ->
+            FilterChip(
+                selected = selectedId == joueur.id,
+                onClick = { onSelect(joueur.id) },
+                label = { Text(joueur.name, maxLines = 1) },
+                modifier = Modifier.testTag("$tagPrefix-${joueur.id}")
+            )
         }
-        Stepper(value = value, onValueChange = onValueChange, step = 1, testTag = testTag)
     }
 }
 
@@ -524,12 +609,13 @@ private fun Stepper(
         OutlinedTextField(
             value = value,
             onValueChange = { raw ->
-                val cleaned = buildString {
-                    raw.forEachIndexed { index, c ->
-                        if (c.isDigit() || (c == '-' && index == 0)) append(c)
-                    }
-                }.take(4)
-                onValueChange(cleaned)
+                onValueChange(
+                    buildString {
+                        raw.forEachIndexed { index, c ->
+                            if (c.isDigit() || (c == '-' && index == 0)) append(c)
+                        }
+                    }.take(4)
+                )
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

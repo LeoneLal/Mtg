@@ -2,7 +2,7 @@
 
 Application Android personnelle pour tenir l'historique de vos parties. Deux sections indépendantes :
 
-- **Magic: The Gathering**, en duel à deux joueurs, avec les decks et les points de vie ;
+- **Magic: The Gathering**, en duel ou à plusieurs (jusqu'à 8 joueurs), avec les decks et les points de vie ;
 - **Autres jeux**, où vous créez vos propres jeux (Skull King, Mixmo, Monopoly Deal…) et enregistrez
   des parties avec autant de joueurs que vous voulez.
 
@@ -15,6 +15,7 @@ Pour chaque partie :
 
 - **la date et l'heure** ;
 - **le format** (Commander, Standard, Limité, Autre) et les **PV de départ** ;
+- **le nombre de joueurs** (2 à 8) et qui était à la table ;
 - **qui a commencé** la partie ;
 - **le deck joué par chacun** ;
 - **le vainqueur** ;
@@ -36,11 +37,11 @@ Pour chaque partie :
 
 | Onglet | Contenu |
 | --- | --- |
-| **Parties** | Le score global entre vous deux, l'historique groupé par jour, un filtre par deck. Un appui sur une partie permet de la corriger ou de la supprimer. |
+| **Parties** | Le score global — face-à-face à deux joueurs, classement au-delà —, l'historique groupé par jour, un filtre par deck. Un appui sur une partie permet de la corriger ou de la supprimer. |
 | **Decks** | Vos decks, classés par propriétaire, avec leurs couleurs et leur bilan victoires/défaites. Un deck déjà utilisé peut être archivé (il disparaît des nouvelles saisies mais reste dans l'historique). |
 | **Stats** | Bilan global, avantage réel du joueur qui commence, statistiques par joueur (dont PV restants moyens en victoire et en défaite, meilleure série), classement des decks et confrontations deck contre deck. |
 | **Jeux** | Vos autres jeux. Chaque jeu a son classement, l'historique de ses parties, et son mode de comptage. |
-| **Réglages** | Les noms des deux joueurs, la synchronisation, l'export/import de sauvegarde JSON, l'effacement de l'historique. |
+| **Réglages** | La liste des joueurs (ajout, renommage, retrait), la synchronisation, l'export/import de sauvegarde JSON, l'effacement de l'historique. |
 
 La saisie d'une partie est optimisée pour l'après-match : les decks de la partie précédente sont
 pré-sélectionnés, et choisir le vainqueur remplit automatiquement les PV (PV de départ pour le gagnant,
@@ -65,6 +66,25 @@ de l'appareil.
 - **Importer** propose soit de *remplacer* toutes les données, soit de *fusionner* (seules les parties et
   les decks absents sont ajoutés) — pratique pour changer de téléphone ou récupérer la saisie faite sur
   l'autre appareil.
+
+## Jouer à Magic à plus de deux
+
+Les joueurs se gèrent dans **Réglages → Les joueurs** : le duel à deux reste la configuration par
+défaut, et vous ajoutez des joueurs au besoin. Un joueur retiré disparaît des nouvelles saisies mais
+son nom reste affiché dans les parties déjà enregistrées — l'historique ne se réécrit pas.
+
+À la saisie d'une partie, un sélecteur fixe le **nombre de joueurs** (2 à 8). Chaque siège reçoit un
+joueur, un deck et ses PV restants ; « qui a commencé » et « qui a gagné » se choisissent parmi les
+joueurs présents. Choisir le vainqueur pré-remplit les PV : PV de départ pour lui, 0 pour les autres.
+
+Quelques statistiques n'ont de sens qu'en duel et le signalent :
+
+- **l'avantage du premier joueur** est calculé sur les parties à deux uniquement — à quatre, le
+  premier joueur part contre trois adversaires, la comparaison n'aurait pas le même sens ;
+- les **confrontations de decks** excluent également les parties à plusieurs.
+
+Tout le reste (bilan par joueur, par deck, PV restants moyens) compte chaque perdant d'une partie
+à plusieurs, et non le premier d'entre eux.
 
 ## Les autres jeux
 

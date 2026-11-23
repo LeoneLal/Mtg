@@ -50,11 +50,15 @@ fun DecksScreen(
         val sorted = state.decks.sortedWith(
             compareBy<Deck> { it.archived }.thenBy { it.name.lowercase() }
         )
-        listOf(
-            Triple("p1", state.playerOne.name, sorted.filter { it.ownerId == state.playerOne.id }),
-            Triple("p2", state.playerTwo.name, sorted.filter { it.ownerId == state.playerTwo.id }),
-            Triple("commun", "Decks communs", sorted.filter { it.ownerId == null })
-        ).filter { it.third.isNotEmpty() }
+        val parJoueur = state.players.map { joueur ->
+            Triple(joueur.id, joueur.name, sorted.filter { it.ownerId == joueur.id })
+        }
+        val idsConnus = state.players.map { it.id }.toSet()
+        val orphelins = sorted.filter { it.ownerId != null && it.ownerId !in idsConnus }
+        (parJoueur +
+            Triple("commun", "Decks communs", sorted.filter { it.ownerId == null }) +
+            Triple("anciens", "Anciens joueurs", orphelins)
+            ).filter { it.third.isNotEmpty() }
     }
 
     Scaffold(

@@ -215,7 +215,8 @@ fun AppRoot(
                     viewModel = viewModel,
                     gameId = id,
                     onDone = { navController.popBackStack() },
-                    onManageDecks = { navController.navigate(Routes.DECKS) }
+                    onManageDecks = { navController.navigate(Routes.DECKS) },
+                    onManagePlayers = { navController.navigate(Routes.SETTINGS) }
                 )
             }
             composable(

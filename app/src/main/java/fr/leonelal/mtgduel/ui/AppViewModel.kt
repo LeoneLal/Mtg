@@ -31,6 +31,12 @@ class AppViewModel(
 
     fun renamePlayer(playerId: String, name: String) = repository.renamePlayer(playerId, name)
 
+    fun addPlayer(name: String) = repository.addPlayer(name)
+
+    fun deletePlayer(playerId: String) = repository.deletePlayer(playerId)
+
+    fun playerIsUsed(playerId: String) = repository.playerIsUsed(playerId)
+
     fun saveDeck(deck: Deck) = repository.upsertDeck(deck)
 
     fun deleteDeck(deckId: String) = repository.deleteDeck(deckId)

@@ -20,6 +20,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Visibility
@@ -50,6 +52,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -57,6 +60,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.leonelal.mtgduel.data.AppState
+import fr.leonelal.mtgduel.data.Player
 import fr.leonelal.mtgduel.data.SyncSettings
 import fr.leonelal.mtgduel.data.SyncState
 import fr.leonelal.mtgduel.ui.AppViewModel
@@ -80,16 +84,13 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var nameOne by rememberSaveable { mutableStateOf(state.playerOne.name) }
-    var nameTwo by rememberSaveable { mutableStateOf(state.playerTwo.name) }
+    var joueurAAjouter by rememberSaveable { mutableStateOf<String?>(null) }
+    var joueurASupprimer by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingImport by remember { mutableStateOf<String?>(null) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
     var showWipeDialog by rememberSaveable { mutableStateOf(false) }
     var crashVersion by remember { mutableIntStateOf(0) }
     val dernierPlantage = remember(crashVersion) { viewModel.lastCrash() }
-
-    LaunchedEffect(state.playerOne.name) { nameOne = state.playerOne.name }
-    LaunchedEffect(state.playerTwo.name) { nameTwo = state.playerTwo.name }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -173,28 +174,27 @@ fun SettingsScreen(
             }
 
             SectionCard(title = "Les joueurs") {
-                OutlinedTextField(
-                    value = nameOne,
-                    onValueChange = {
-                        nameOne = it
-                        viewModel.renamePlayer(state.playerOne.id, it)
-                    },
-                    label = { Text("Joueur 1") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = nameTwo,
-                    onValueChange = {
-                        nameTwo = it
-                        viewModel.renamePlayer(state.playerTwo.id, it)
-                    },
-                    label = { Text("Joueur 2") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                state.players.forEachIndexed { index, joueur ->
+                    LigneJoueurReglages(
+                        joueur = joueur,
+                        rang = index + 1,
+                        suppressionPossible = state.players.size > 2,
+                        onRenommer = { viewModel.renamePlayer(joueur.id, it) },
+                        onSupprimer = { joueurASupprimer = joueur.id }
+                    )
+                }
+                FilledTonalButton(
+                    onClick = { joueurAAjouter = "" },
+                    modifier = Modifier.testTag("ajouter-joueur")
+                ) {
+                    Icon(Icons.Filled.PersonAdd, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Ajouter un joueur")
+                }
                 Text(
-                    "Les noms sont utilisés partout dans l'application ; les parties déjà enregistrées suivent automatiquement.",
+                    "Les noms sont utilisés partout dans l'application ; les parties déjà " +
+                        "enregistrées suivent automatiquement. Ajoutez des joueurs pour " +
+                        "enregistrer des parties de Magic à plus de deux.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -302,6 +302,67 @@ fun SettingsScreen(
                     }) { Text("Fusionner") }
                     TextButton(onClick = { pendingImport = null }) { Text("Annuler") }
                 }
+            }
+        )
+    }
+
+    val nouveauJoueur = joueurAAjouter
+    if (nouveauJoueur != null) {
+        AlertDialog(
+            onDismissRequest = { joueurAAjouter = null },
+            title = { Text("Ajouter un joueur") },
+            text = {
+                OutlinedTextField(
+                    value = nouveauJoueur,
+                    onValueChange = { joueurAAjouter = it },
+                    label = { Text("Prénom") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("nom-nouveau-joueur")
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = nouveauJoueur.isNotBlank(),
+                    onClick = {
+                        viewModel.addPlayer(nouveauJoueur)
+                        joueurAAjouter = null
+                    }
+                ) { Text("Ajouter") }
+            },
+            dismissButton = {
+                TextButton(onClick = { joueurAAjouter = null }) { Text("Annuler") }
+            }
+        )
+    }
+
+    val aSupprimer = joueurASupprimer?.let { id -> state.players.firstOrNull { it.id == id } }
+    if (aSupprimer != null) {
+        val utilise = viewModel.playerIsUsed(aSupprimer.id)
+        AlertDialog(
+            onDismissRequest = { joueurASupprimer = null },
+            title = { Text("Retirer ${aSupprimer.name} ?") },
+            text = {
+                Text(
+                    if (utilise) {
+                        "Ce joueur apparaît dans des parties ou possède des decks. Son nom " +
+                            "restera visible dans l'historique, mais il ne sera plus proposé " +
+                            "pour les nouvelles parties."
+                    } else {
+                        "Ce joueur n'apparaît nulle part, il peut être retiré sans conséquence."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deletePlayer(aSupprimer.id)
+                    joueurASupprimer = null
+                    scope.launch { snackbarHostState.showSnackbar("${aSupprimer.name} retiré.") }
+                }) { Text("Retirer") }
+            },
+            dismissButton = {
+                TextButton(onClick = { joueurASupprimer = null }) { Text("Annuler") }
             }
         )
     }
@@ -439,5 +500,41 @@ private fun CarteSynchronisation(viewModel: AppViewModel) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun LigneJoueurReglages(
+    joueur: Player,
+    rang: Int,
+    suppressionPossible: Boolean,
+    onRenommer: (String) -> Unit,
+    onSupprimer: () -> Unit
+) {
+    // Le champ suit le nom venu de la synchronisation tant qu'on n'y touche pas.
+    var nom by remember(joueur.id, joueur.name) { mutableStateOf(joueur.name) }
+
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = nom,
+            onValueChange = {
+                nom = it
+                onRenommer(it)
+            },
+            label = { Text("Joueur $rang") },
+            singleLine = true,
+            modifier = Modifier
+                .weight(1f)
+                .testTag("nom-joueur-reglages-$rang")
+        )
+        if (suppressionPossible) {
+            IconButton(onClick = onSupprimer) {
+                Icon(
+                    Icons.Filled.PersonRemove,
+                    contentDescription = "Retirer ${joueur.name}",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
     }
 }

@@ -66,17 +66,17 @@ class ParcoursCompletTest {
         // C'est le copain qui a commencé.
         compose.onNodeWithTag("premier-p2").performScrollTo().performClick()
 
-        compose.onNodeWithTag("deck-joueur-1").performScrollTo().performClick()
-        compose.onNodeWithText("Atraxa").performClick()
-        compose.onNodeWithTag("deck-joueur-2").performScrollTo().performClick()
-        compose.onNodeWithText("Krenko").performClick()
+        compose.onNodeWithTag("deck-0").performScrollTo().performClick()
+        compose.onNodeWithTag("option-Atraxa").performClick()
+        compose.onNodeWithTag("deck-1").performScrollTo().performClick()
+        compose.onNodeWithTag("option-Krenko").performClick()
 
         // Victoire de « Moi » : les PV se pré-remplissent (40 pour le gagnant, 0 pour le perdant).
         compose.onNodeWithTag("vainqueur-p1").performScrollTo().performClick()
-        compose.onNodeWithTag("pv-joueur-1").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("pv-0").performScrollTo().assertIsDisplayed()
 
         // Le perdant était en fait à 3 PV au moment de la défaite.
-        compose.onNodeWithTag("pv-joueur-2").performScrollTo().performTextReplacement("3")
+        compose.onNodeWithTag("pv-1").performScrollTo().performTextReplacement("3")
 
         compose.onNodeWithText("Enregistrer la partie").performScrollTo().performClick()
 
@@ -109,7 +109,16 @@ class ParcoursCompletTest {
 
         compose.onNodeWithTag("onglet-games").performClick()
         compose.onNodeWithTag("fab-nouvelle-partie").performClick()
-        // Aucun vainqueur ni deck choisi : l'enregistrement doit être refusé.
+
+        // Sans deck, l'enregistrement est refusé et le motif est précis.
+        compose.onNodeWithText("Enregistrer la partie").performScrollTo().performClick()
+        compose.onNodeWithText("Choisis un deck pour chaque joueur.").performScrollTo().assertIsDisplayed()
+
+        // Decks choisis mais toujours pas de vainqueur : refusé aussi.
+        compose.onNodeWithTag("deck-0").performScrollTo().performClick()
+        compose.onNodeWithTag("option-Atraxa").performClick()
+        compose.onNodeWithTag("deck-1").performScrollTo().performClick()
+        compose.onNodeWithTag("option-Atraxa").performClick()
         compose.onNodeWithText("Enregistrer la partie").performScrollTo().performClick()
         compose.onNodeWithText("Sélectionne le vainqueur.").performScrollTo().assertIsDisplayed()
     }

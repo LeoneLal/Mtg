@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.leonelal.mtgduel.data.MtgColors
@@ -218,7 +219,9 @@ fun <T> PickerField(
                         onClick = {
                             onSelect(option)
                             expanded = false
-                        }
+                        },
+                        // Un seul menu est ouvert à la fois : l'intitulé suffit à viser une option.
+                        modifier = Modifier.testTag("option-${optionLabel(option)}")
                     )
                 }
             }

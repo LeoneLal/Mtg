@@ -30,7 +30,7 @@ class SyncMergeTest {
 
     private fun etat(decks: List<Deck> = emptyList(), parties: List<Game> = emptyList(), majJoueurs: Long = 0) =
         AppState(
-            players = listOf(Player("p1", "Moi", majJoueurs), Player("p2", "Lui", majJoueurs)),
+            allPlayers = listOf(Player("p1", "Moi", majJoueurs), Player("p2", "Lui", majJoueurs)),
             allDecks = decks,
             allGames = parties
         )
@@ -77,8 +77,8 @@ class SyncMergeTest {
 
     @Test
     fun `le nom de joueur le plus recent gagne`() {
-        val local = AppState(players = listOf(Player("p1", "Leo", 500), Player("p2", "Lui", 10)))
-        val distant = AppState(players = listOf(Player("p1", "Ancien", 100), Player("p2", "Copain", 300)))
+        val local = AppState(allPlayers = listOf(Player("p1", "Leo", 500), Player("p2", "Lui", 10)))
+        val distant = AppState(allPlayers = listOf(Player("p1", "Ancien", 100), Player("p2", "Copain", 300)))
         val fusion = SyncMerge.merge(local, distant)
         assertEquals("Leo", fusion.playerName("p1"))
         assertEquals("Copain", fusion.playerName("p2"))
@@ -87,7 +87,7 @@ class SyncMergeTest {
     @Test
     fun `fusionner avec un serveur vide ne perd rien`() {
         val local = etat(decks = listOf(deck("d1", "Atraxa", 10)), parties = listOf(partie("g1", 20)))
-        val fusion = SyncMerge.merge(local, AppState(players = emptyList()))
+        val fusion = SyncMerge.merge(local, AppState(allPlayers = emptyList()))
         assertEquals(1, fusion.allDecks.size)
         assertEquals(1, fusion.allGames.size)
         assertEquals("Moi", fusion.playerName("p1"))

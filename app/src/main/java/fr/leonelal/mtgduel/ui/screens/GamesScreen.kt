@@ -85,7 +85,8 @@ fun GamesScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .testTag("liste-parties"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -149,10 +150,10 @@ fun GamesScreen(
 
 @Composable
 private fun ScoreBoard(state: AppState, games: List<Game>) {
-    val p1 = state.playerOne
-    val p2 = state.playerTwo
-    val winsP1 = games.count { it.winnerId == p1.id }
-    val winsP2 = games.count { it.winnerId == p2.id }
+    val joueurs = state.players
+    val victoires = remember(games, joueurs) {
+        joueurs.associate { joueur -> joueur.id to games.count { it.winnerId == joueur.id } }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -166,21 +167,67 @@ private fun ScoreBoard(state: AppState, games: List<Game>) {
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Spacer(Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ScoreSide(name = p1.name, score = winsP1, leading = winsP1 > winsP2, modifier = Modifier.weight(1f))
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 10.dp)
-                        .size(width = 2.dp, height = 28.dp)
-                        .background(
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.35f),
-                            RoundedCornerShape(1.dp)
+
+            if (joueurs.size <= 2) {
+                // Le duel garde son face-à-face.
+                val p1 = state.playerOne
+                val p2 = state.playerTwo
+                val v1 = victoires[p1.id] ?: 0
+                val v2 = victoires[p2.id] ?: 0
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ScoreSide(name = p1.name, score = v1, leading = v1 > v2, modifier = Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 10.dp)
+                            .size(width = 2.dp, height = 28.dp)
+                            .background(
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.35f),
+                                RoundedCornerShape(1.dp)
+                            )
+                    )
+                    ScoreSide(name = p2.name, score = v2, leading = v2 > v1, modifier = Modifier.weight(1f))
+                }
+            } else {
+                // Au-delà de deux joueurs, un face-à-face n'a plus de sens : on classe.
+                val meilleur = victoires.values.maxOrNull() ?: 0
+                joueurs.sortedByDescending { victoires[it.id] ?: 0 }.forEach { joueur ->
+                    val v = victoires[joueur.id] ?: 0
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (v == meilleur && meilleur > 0) {
+                            Icon(
+                                Icons.Filled.EmojiEvents,
+                                contentDescription = "En tête",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.size(6.dp))
+                        } else {
+                            Spacer(Modifier.size(22.dp))
+                        }
+                        Text(
+                            text = joueur.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
                         )
-                )
-                ScoreSide(name = p2.name, score = winsP2, leading = winsP2 > winsP1, modifier = Modifier.weight(1f))
+                        Text(
+                            text = "$v",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
             }
         }
     }
@@ -250,8 +297,6 @@ private fun DeckFilterRow(
 
 @Composable
 private fun GameCard(state: AppState, game: Game, onClick: () -> Unit) {
-    val winner = game.winnerSide
-    val loser = game.loserSide
 
     Card(
         modifier = Modifier
@@ -271,32 +316,32 @@ private fun GameCard(state: AppState, game: Game, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "${game.format} · ${game.startingLife} PV",
+                    text = buildString {
+                        append(game.format)
+                        append(" · ")
+                        append(game.startingLife)
+                        append(" PV")
+                        if (game.isMultiplayer) {
+                            append(" · ")
+                            append(game.sides.size)
+                            append(" joueurs")
+                        }
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Spacer(Modifier.height(8.dp))
 
-            if (winner != null) {
+            game.sidesOrdered.forEachIndexed { index, side ->
+                if (index > 0) Spacer(Modifier.height(6.dp))
                 PlayerLine(
                     state = state,
-                    playerId = winner.playerId,
-                    deckId = winner.deckId,
-                    life = winner.lifeRemaining,
-                    isWinner = true,
-                    startedFirst = game.firstPlayerId == winner.playerId
-                )
-            }
-            if (loser != null) {
-                Spacer(Modifier.height(6.dp))
-                PlayerLine(
-                    state = state,
-                    playerId = loser.playerId,
-                    deckId = loser.deckId,
-                    life = loser.lifeRemaining,
-                    isWinner = false,
-                    startedFirst = game.firstPlayerId == loser.playerId
+                    playerId = side.playerId,
+                    deckId = side.deckId,
+                    life = side.lifeRemaining,
+                    isWinner = side.playerId == game.winnerId,
+                    startedFirst = game.firstPlayerId == side.playerId
                 )
             }
 
